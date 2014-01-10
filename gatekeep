@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# Gatekeeper script
+
 . /etc/init.d/functions
 
 STAMP=$(date +%m%d%y%H%M)
