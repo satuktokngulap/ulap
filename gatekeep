@@ -1,0 +1,440 @@
+#!/bin/bash
+
+. /etc/init.d/functions
+
+STAMP=$(date +%m%d%y%H%M)
+LOG="/root/gatekeep_$STAMP"
+HOSTNAME=$(uname -n)
+ME="$(echo $HOSTNAME | gawk -F'.' '{print $1}')"
+CLUSTER="$(echo $HOSTNAME | gawk -F'.' '{print $2}')"
+if [ "$ME" = "sa" ]; then
+        PEER="sb.$CLUSTER.cloudtop.ph"
+else PEER="sa.$CLUSTER.cloudtop.ph"
+fi
+
+drbdconfig(){
+	ret=0
+	echo -n "Checking DRBD config..." | tee -a $LOG
+	
+	drbdadm dump >> $LOG
+	if [ $? -eq 0 ]; then
+        	echo -n "no errors"
+	        echo_success
+	        echo
+	else
+	        echo -n "errors found!"
+	        echo_failure
+	        echo
+		ret=1
+	fi
+	echo -n "Checking DRBD status..."
+	local drbd=`service drbd status | gawk '/drbd driver/ {print $4}'`
+	if [ "$drbd" = "OK;" ]; then
+	        echo -n "drbd driver loaded"
+	        echo_success
+	        echo
+	else
+	        echo -n "drbd driver not loaded!"
+	        echo_failure
+	        echo
+		ret=1
+	fi
+	
+	echo -n "Counting number of DRBD resources..."
+	if [ $(drbd-overview | wc -l) -eq 2 ]; then
+	        echo -n "2 resources"
+	        echo_success
+	        echo
+	else
+	        echo -n "incorrect number of resources!"
+	        echo_failure
+	        echo
+		ret=1
+	fi
+
+	return $ret	
+}
+
+drbdcheck() {
+	drbdret=0
+	for re in $@
+        do
+		echo -e "\t$re status: "
+        	local states=( `drbd-overview | gawk '/'$re'/ {print $2" "$3" "$4}'` )
+
+        	echo -ne "\t\tConnection state: ${states[0]}"
+	        if [ "${states[0]}" = "Connected" ]; then
+	                echo_success
+	                echo
+	        else 
+			echo_failure
+			drbdret=1
+	        fi
+	
+	        echo -ne "\t\tRole: ${states[1]}"
+	        if [ "${states[1]}" = "Primary/Primary" ]; then
+	                echo_success
+	                echo
+	        else
+			echo_failure
+			drbdret=1
+	        fi
+	
+	        echo -ne "\t\tDisk state: ${states[2]}"
+	        if [ "${states[2]}" = "UpToDate/UpToDate" ]; then
+	                echo_success
+	                echo
+                else
+			echo_failure
+			drbdret=1
+	        fi
+	done
+	return $drbdret
+}
+
+chkhosts () {
+	hostnames=( $HOSTNAME $PEER "ipmi.$HOSTNAME" "ipmi.$PEER" "ldap.$CLUSTER.cloudtop.ph" "ldap.local" "lms.local" "rdpminta.local" "rdpmintb.local" "puppetmaster.cloudtop.ph" "virtualip.$CLUSTER.cloudtop.ph" )
+	for name in ${hostnames[@]}
+	do
+		echo -ne "\t$name..."
+		grep $name /etc/hosts >> $LOG
+		if [ $? -eq 0 ]; then
+			echo -n "found"
+			echo_success
+			echo
+		else
+			echo -n "missing!"
+			echo_failure
+			echo
+			return 1
+		fi
+	done
+	return 0
+}
+
+checkos() {
+	echo "Checking OS version..."
+        	arch=$(cat /proc/version | gawk '{print $3}')
+		version=$(cat /etc/issue | gawk 'NR==1 {print $1" "$3}')
+	        echo -ne "\t$version ${arch:(-6)}"
+	       	if [ "${arch:(-6)}" = "x86_64" -a "$version" = "CentOS 6.4" ]; then
+	                echo_success
+        	        echo
+			return 0
+	else
+	        echo -ne "Incorrect version!"
+	        echo_failure
+	        echo
+		return 1
+	fi
+}
+
+chkbridge () {
+                echo -ne "\tChecking if $1 is bridged to eth${1:(-1)}..."
+                bridged=`brctl show $1 | gawk '!/^bridge|^\t/ {print $4}'`
+                if [ "$bridged" = "eth${1:(-1)}" ]; then
+                        echo -n "correct"
+                        echo_success
+                        echo
+			return 0
+                else
+                        echo -n "please check $1 config!"
+                        echo_failure
+                        echo
+                        return 1
+                fi
+
+} 
+
+chkiface() {
+	echo "Checking network interfaces"
+	ifaces=( `ifconfig -a | sed 's/[ \t].*//;/^\(lo\|\|v.*\)$/d'` )
+	for i in ${ifaces[@]}
+	do
+		case $i in
+		br0)
+			ip=`ifconfig $i | grep 'inet addr:' | cut -d: -f2 | awk '{ print $1}'`
+			chkbridge $i
+			if [ $? -ne 0 ]; then
+				return 1
+			fi
+			gateway=`echo $ip | gawk -F. '{print $1"."$2"."$3".1"}'`
+        	        echo -ne "\t$i $ip...pinging gateway $gateway "
+	                chkping=`ping -c 2 $gateway`
+        	        if [ $? -eq 0 ]; then
+	                        echo_success
+	                        echo
+	                else
+	                        echo_failure
+	                        echo
+	                        return 1
+	                fi
+		;;
+		br1)
+	                chkbridge $i
+	                if [ $? -ne 0 ]; then
+	                        return 1
+	                fi
+		;;
+		eth[0-1])
+			ip="<no address>"
+			echo -ne "\t$i $ip"
+			echo_success
+			echo
+		;;
+		*)
+			echo "\t$i $ip"
+		;;
+		esac
+	done
+	return 0
+}
+
+pingtest() {
+	echo "Ping tests on /etc/hosts addresses..."
+	hosts=( `cat /etc/hosts | gawk '!/127.0.0.1|::1|^#|^'$HOSTNAME'/ && /./ {print $1","$2}'` )
+	for host in ${hosts[@]}
+	do
+	echo -ne "\tPinging $host..." | tee -a $LOG
+	addr=$(echo $host | gawk -F, '{print $2}')
+	ping -c 2 $addr >> $LOG
+                if [ $? -eq 0 ]; then
+                        echo_success
+                        echo
+                else
+                        echo_failure
+                        echo
+                        return 1
+                fi
+	done
+	return 0
+}
+
+chkname () {
+	echo -n "Checking hostname pattern against *.*.cloudtop.ph"
+	if [[ "$HOSTNAME" = *"."*".cloudtop.ph" ]]; then
+		echo_success
+		echo
+		return 0
+	else
+		echo_failure
+		echo
+		return 1
+	fi
+}
+
+chkcluster () {
+	echo -n "Validating cluster config..."
+	ccs_config_validate
+	if [ $? -eq 0 ]; then
+		echo_success
+		echo
+	else
+		echo_failure
+		echo
+		return 1
+	fi
+
+	echo "Running rg_test on services..."
+	local services=( "powerinit" "storage_sa" "storage_sb" )
+	local vms=( "a_vm_ldap" "a_vm_rdpminta" "b_vm_lms" "b_vm_rdpmintb" )
+
+	for service in ${services[@]}
+	do
+		echo -n "Testing $service..." | tee -a $LOG
+		rg_test noop /etc/cluster/cluster.conf start service $service >> $LOG
+		if [ $? -eq 0 ]; then
+			echo -n "Test start of $service succeeded"
+			echo_success
+			echo
+		else
+			echo_failure
+			echo
+			return 1
+		fi
+	done
+
+	echo -n "Checking if nfsservice is started..." | tee -a $LOG
+	nfsservice=`clustat -s nfs-shared | gawk '!/^ Service|^ -/ {print $3}'`
+	if [ "$nfsservice" = "started" ]; then
+		echo -n "status is started."
+		echo_success
+		echo
+	else
+		echo -n "not started!"
+		echo_failure
+		echo
+		return 1
+	fi
+	
+
+	for vm in ${vms[@]}
+	do
+		echo -n "Testing $vm..." | tee -a $LOG
+		rg_test noop /etc/cluster/cluster.conf start vm $vm >> $LOG
+		if [ $? -eq 0 ]; then
+			echo -n "Test start of $vm succeeded"
+			echo_success
+			echo
+		else
+			echo_failure
+			echo
+			return 1
+		fi
+	done
+
+	echo -n "Checking if cman is running..."
+	service cman status
+	if [ $? -eq 0 ]; then
+		echo_success
+		echo
+	else
+		echo_failure
+		echo
+		return 1
+	fi
+	
+	return 0
+}
+
+testssh () {
+	echo -n "Test ssh to $1..."
+	ssh -o BatchMode=yes $1 'exit'
+	if [ $? -eq 0 ]; then
+        	echo -n "succeeded"
+	        echo_success
+	        echo
+		return 0
+	else
+	        echo -n "failed!"
+	        echo_failure
+	        echo
+	        return 1
+	fi
+}
+
+error () {
+	if [ $1 -ne 0 ]; then
+		exit $1
+	fi
+}
+
+ret=0
+
+if [ $# -ne 0 ]; then
+	for command in $@
+	do
+		LOG="$LOG.$command"
+		type $command &>/dev/null && $command || echo "Error running '"$command"'!"
+		error $?
+	done
+	exit $?
+fi
+
+echo
+echo "###############################"
+echo "T3 Gatekeeping - DRBD Build"
+echo "Dumping output to: $LOG"
+echo "###############################"
+echo
+
+# Hostname
+chkname
+error $?
+
+# DISK SCTRUCTURE AND CAPACITY
+
+# Check disk sizes
+echo -n "Checking sda size..."
+sda=`parted -s /dev/sda print | gawk '/Disk/ {print $3}'`
+echo -n "$sda"
+if [ "$sda" = "500GB" ]; then
+	echo_success
+	echo
+else
+	echo -n "Incorrect disk size!"
+	echo_failure
+	echo
+	exit 1
+fi
+
+echo -n "Checking sdb size..."
+sdb=`parted -s /dev/sdb print | gawk '/Disk/ {print $3}'`
+echo -n "$sdb"
+if [ "$sdb" = "500GB" ]; then
+	echo_success
+	echo
+else
+	echo -n "Incorrect disk size!"
+	echo_failure
+	echo
+	exit 1
+fi
+
+# /etc/hosts entries
+echo "Checking if /etc/hosts entries are complete..."
+chkhosts
+error $?
+
+# Check DRBD
+drbdconfig
+error $?
+
+echo "Checking status of resources..."
+res=( `drbd-overview | gawk -F'[: ]' '{print $4}'` )
+drbdcheck ${res[@]}
+error $?
+
+# OS
+checkos
+error $?
+
+# Network
+chkiface
+error $?
+
+pingtest
+error $?
+
+# Cluster
+chkcluster
+error $?
+
+# Access
+echo -n "Checking if cloud user is added to libvirt group..."
+if [ -z "$(grep ^libvirt /etc/group | gawk '/cloud/')" ]; then
+	echo_failure
+	echo
+	exit 1
+else
+	echo_success
+	echo
+fi
+
+# SNMP
+echo -n "Checking if SNMP is running..."
+service snmpd status
+if [ $? -eq 0 ]; then
+	echo_success
+	echo
+else
+	echo_failure
+	echo
+	exit 1
+fi
+
+# SSH KEYS
+testssh $PEER
+error $?
+
+testssh $( gethostip -d $PEER )
+error $?
+
+if [ $ret -eq 0 ]; then
+	echo "All tests OK."
+	rm -f $LOG
+else
+	echo "Some tests failed. Please review $LOG file."
+fi
+
+exit $ret
