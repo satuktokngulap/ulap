@@ -1,0 +1,9 @@
+#
+#insert instructions herea
+#
+#v1.0
+#
+#step1 :configure network ip address manualy (for now)
+#step2 : run install_preliminaries.sh
+#step3 : run partitioner.sh, check partitions if successful
+#step4 : PLEASE REBOOT

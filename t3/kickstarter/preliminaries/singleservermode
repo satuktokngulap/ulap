@@ -1,0 +1,43 @@
+#!/bin/bash
+# Execute reduced power mode
+# Author: Isabel Montes
+
+LOG="logger -s $0:"
+
+MYNAME="`uname -n`"
+ALIVE="$(echo $MYNAME | gawk -F'.' '{print $1}')"
+if [ "$ALIVE" = "sa" ]; then
+        DEAD="sb"
+else DEAD="sa"
+fi
+MYCLUSTER="$(echo $MYNAME | gawk -F'.' '{print $2}')"
+
+$LOG "Preparing to go into single-server mode."
+$LOG "Migrating all vm services to the local node..."
+for VM in $(clustat | gawk '!/Service/ && !/-/ && /vm:/ {print $1}'); do
+	# Check status of VMs
+	case $(clustat -s $VM | gawk '!/Service/ && !/-/ {print $3}') in
+	started )
+		owner=$(clustat -s $VM | gawk '!/Service/ && !/-/ {print $2}')
+		$LOG "Service $VM is running on owner: $owner"
+		if [ "$owner" != "$MYNAME" ]; then
+			$LOG "Will migrate $VM to $MYNAME"
+			clusvcadm -M $VM -m $MYNAME
+		fi
+		;;
+	"" )
+		$LOG "No cluster service found for $VM"
+		;;
+	disabled )
+		$LOG "Service $VM is disabled, ignoring."
+		;;
+	* )
+		$LOG "Service $VM is not started, ignoring."
+		;;
+	esac
+done
+
+$LOG "VM services have been migrated to the local node. Shutting down peer..."
+ssh root@$DEAD.$MYCLUSTER.t3.cloudtop.ph poweroff
+
+$LOG "Done!"
