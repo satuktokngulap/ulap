@@ -45,6 +45,14 @@
 	<script file="/etc/init.d/clvmd" name="clvmd"/>
 	<script file="/etc/init.d/gfs2" name="gfs2"/>
 	<script file="/etc/init.d/libvirtd" name="libvirtd"/>
+	<clusterfs device="/dev/shared-vg0/shared" force_unmount="0" fstype="gfs" mountpoint="/shared" name="shared" options="acl"/>
+	<nfsexport name="NFSexports1"/>
+	<nfsclient allow_recover="1" name="rdpclient-a" options="rw,fsid=0,sync,no_root_squash,no_subtree_check" target="RDPA_IP"/>
+	<nfsclient allow_recover="1" name="rdpclient-b" options="rw,fsid=0,sync,no_root_squash,no_subtree_check" target="RDPB_IP"/>
+	<nfsexport name="NFSexports2"/>
+	<nfsclient allow_recover="1" name="lmsclient" options="rw,sync,no_root_squash,no_subtree_check" target="LMS_IP"/>
+	<nfsexport name="NFSexports3"/>
+	<nfsclient allow_recover="1" name="ldapclient" options="rw,sync,no_root_squash,no_subtree_check" target="LDAP_IP"/>
     </resources>
     <service name="storage_sa" autostart="1" domain="saonly" exclusive="0" recovery="restart">
     	<script ref="drbd">
@@ -64,8 +72,20 @@
     		</script>
     	</script>
     </service>
-    <service autostart="1" domain="primary_sa" exclusive="0" max_restarts="2" name="virtual_ip" recovery="restart" restart_expire_time="600">
-        <ip address="VIRT_IP" monitor_link="on" sleeptime="10"/>
+    <service autostart="0" domain="primary_sa" exclusive="0" max_restarts="2" name="nfs-shared" nfslock="1" recovery="restart" restart_expire_time="600">
+    	<ip address="VIRT_IP" monitor_link="on" sleeptime="10"/>
+    	<clusterfs ref="shared">
+    		<nfsexport ref="NFSexports1">
+    			<nfsclient ref="rdpclient-a"/>
+    			<nfsclient ref="rdpclient-b"/>
+    		</nfsexport>
+    		<nfsexport ref="NFSexports2">
+    			<nfsclient ref="lmsclient"/>
+    		</nfsexport>
+    		<nfsexport ref="NFSexports3">
+    			<nfsclient ref="ldapclient"/>
+    		</nfsexport>
+    	</clusterfs>
     </service>
     <vm autostart="0" domain="primary_sa" exclusive="0" max_restarts="2" name="vm_rdpa" path="/shared/system/definitions/" recovery="restart" restart_expire_time="600"/>
     <vm autostart="0" domain="primary_sa" exclusive="0" max_restarts="2" name="vm_ldap" path="/shared/system/definitions/" recovery="restart" restart_expire_time="600"/>
