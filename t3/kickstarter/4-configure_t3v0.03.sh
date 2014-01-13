@@ -1,5 +1,5 @@
 #!/bin/bash
-# CloudTop: T3 2-Node Configuration v0.04
+# CloudTop: T3 2-Node Configuration v0.05
 # Sets up configuration files for 2-Node T3 servers
 # Author: Isabel Montes
 
@@ -21,6 +21,10 @@ if [ "$(echo $MYNAME | gawk -F'.' '{print $1}')" = "sa" ]; then
 else MYPEERNAME="sa."$MYCLUSTER".cloudtop.ph";
 fi
 
+RDPAIP="$(echo $MYIP | gawk -F'.' '{print $1"."$2"."$3".24"}')"
+RDPBIP="$(echo $MYIP | gawk -F'.' '{print $1"."$2"."$3".25"}')"
+LDAPIP="$(echo $MYIP | gawk -F'.' '{print $1"."$2"."$3".20"}')"
+LMSIP="$(echo $MYIP | gawk -F'.' '{print $1"."$2"."$3".21"}')"
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
@@ -133,7 +137,7 @@ for FILE in `ls -1 ${DRBDPATH}*`; do
 done
 
 echo "Updating cluster.conf..."
-sed -e 's/SITE_ID/'$MYCLUSTER'/g' -e 's/VIRT_IP/'$VIRTIP'/g' < ${CLUSPATH}cluster.conf > /tmp/cluster.conf
+sed -e 's/SITE_ID/'$MYCLUSTER'/g' -e 's/VIRT_IP/'$VIRTIP'/g' -e 's/RDPA_IP/'$RDPAIP'/g' -e 's/RDPB_IP/'$RDPBIP'/g' -e 's/LDAP_IP/'$LDAPIP'/g' -e 's/LMS_IP/'$LMSIP'/g' < ${CLUSPATH}cluster.conf > /tmp/cluster.conf
 
 mv /tmp/cluster.conf /etc/cluster/cluster.conf
 
@@ -143,6 +147,10 @@ cp ${LVMPATH}lvm.conf /etc/lvm/lvm.conf
 
 echo "Copying vm_autostart..."
 cp ${PRELIMPATH}start_vm.sh /root/start_vm.sh
+
+echo "Copying rambo..."
+mkdir /root/scripts
+cp ${PRELIMPATH}rambo /root/scripts/rambo
 
 echo "Done! Please check configuration files before proceeding"
 ls -ltr /etc/hosts*
