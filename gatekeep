@@ -315,6 +315,32 @@ testssh () {
 	fi
 }
 
+chkvmstart () {
+	echo -n "Checking if start_vm.sh exists..."
+	if [ -f "/root/start_vm.sh" ]; then
+   		echo -n "File exists."
+   		echo_success
+   		echo
+   	else
+   		echo -n "File not found!"
+   		echo_failure
+   		echo
+   		return 1
+	fi
+	
+	echo -n "Checking if autostart is configured..."
+	grep "/root/start_vm.sh 2>&1 &" /etc/rc.local >> $LOG
+	if [ $? -eq 0 ]; then
+		echo_success
+		echo
+	else
+		echo_failure
+		echo
+		return 1
+	fi
+	return 0
+}
+
 error () {
 	if [ $1 -ne 0 ]; then
 		exit $1
@@ -400,6 +426,10 @@ error $?
 
 # Cluster
 chkcluster
+error $?
+
+# VMs
+chkvmstart
 error $?
 
 # Access
