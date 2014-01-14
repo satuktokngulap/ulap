@@ -7,12 +7,13 @@
 STAMP=$(date +%m%d%y%H%M)
 LOG="/root/gatekeep_$STAMP"
 HOSTNAME=$(uname -n)
-ME="$(echo $HOSTNAME | gawk -F'.' '{print $1}')"
+ME=${HOSTNAME:0:2}
 CLUSTER="$(echo $HOSTNAME | gawk -F'.' '{print $2}')"
 if [ "$ME" = "sa" ]; then
         PEER="sb.$CLUSTER.cloudtop.ph"
 else PEER="sa.$CLUSTER.cloudtop.ph"
 fi
+vms=( "a_vm_ldap" "a_vm_rdpminta" "b_vm_lms" "b_vm_rdpmintb" )
 
 drbdconfig(){
 	ret=0
@@ -239,7 +240,6 @@ chkcluster () {
 
 	echo "Running rg_test on services..."
 	local services=( "powerinit" "storage_sa" "storage_sb" )
-	local vms=( "a_vm_ldap" "a_vm_rdpminta" "b_vm_lms" "b_vm_rdpmintb" )
 
 	for service in ${services[@]}
 	do
@@ -341,6 +341,77 @@ chkvmstart () {
 	return 0
 }
 
+chkvmxml () {
+	local xmldir=/shared/system/definitions/
+	echo "Checking if xml files are complete"
+	for vm in ${vms[@]}
+	do
+		echo -ne "\tLocating $vm.xml..."
+		if [ -f ${xmldir}${vm}.xml ]; then
+			echo -n "found."
+			echo_success
+			echo
+
+			echo -ne "\tTesting migration..."
+			local owner=`clustat -s vm:$vm | gawk '!/^ Service|^ -/ {print $2}'`
+			case $owner in
+				$HOSTNAME )
+					clusvcadm -M vm:$vm -m $PEER >> $LOG
+					if [ $? -eq 0 ]; then
+						echo -n "to ${PEER:0:2} [ok]; "
+						clusvcadm -M vm:$vm -m $HOSTNAME >> $LOG
+						if [ $? -ne 0 ]; then
+							echo -n "to ${HOSTNAME:0:2} [failed]; "
+							echo_failure
+							echo
+							return 1
+						else
+							echo -n "to ${HOSTNAME:0:2} [ok];"
+							echo_success
+							echo
+						fi
+					else
+						echo -n "to ${PEER:0:2} [failed]; "
+						echo_failure
+						echo
+						return 1
+					fi
+					;;
+				$PEER )
+					clusvcadm -M vm:$vm -m $HOSTNAME >> $LOG
+					if [ $? -eq 0 ]; then
+						echo -n "to ${HOSTNAME:0:2} [ok]; "
+						clusvcadm -M vm:$vm -m $PEER >> $LOG
+						if [ $? -ne 0 ]; then
+							echo -n "to ${PEER:0:2} [failed]; "
+							echo_failure
+							echo
+							return 1
+						else
+							echo -n "to ${PEER:0:2} [ok]; "
+							echo_success
+							echo
+						fi
+					else
+						echo -n "to ${HOSTNAME:0:2} [failed]; "
+						echo_failure
+						echo
+						return 1
+					fi
+					;;
+				* )
+					;;
+			esac
+		else
+			echo -n "not found!"
+			echo_failure
+			echo
+			return 1
+		fi
+	done
+	return 0	
+}
+
 error () {
 	if [ $1 -ne 0 ]; then
 		exit $1
@@ -430,6 +501,9 @@ error $?
 
 # VMs
 chkvmstart
+error $?
+
+chkvmxml
 error $?
 
 # Access
