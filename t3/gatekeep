@@ -15,6 +15,7 @@ else PEER="sa.$CLUSTER.cloudtop.ph"
 fi
 vms=( "a_vm_ldap" "a_vm_rdpminta" "b_vm_lms" "b_vm_rdpmintb" )
 
+# Function that checks the DRBD config
 drbdconfig(){
 	ret=0
 	echo -n "Checking DRBD config..." | tee -a $LOG
@@ -58,6 +59,7 @@ drbdconfig(){
 	return $ret	
 }
 
+# Function that checks drbd status, and the states of the DRBD resources
 drbdcheck() {
 	drbdret=0
 	for re in $@
@@ -95,6 +97,7 @@ drbdcheck() {
 	return $drbdret
 }
 
+# Function that checks if the /etc/hosts entries are complete
 chkhosts () {
 	hostnames=( $HOSTNAME $PEER "ipmi.$HOSTNAME" "ipmi.$PEER" "ldap.$CLUSTER.cloudtop.ph" "ldap.local" "lms.local" "rdpminta.local" "rdpmintb.local" "puppetmaster.cloudtop.ph" "virtualip.$CLUSTER.cloudtop.ph" )
 	for name in ${hostnames[@]}
@@ -115,6 +118,7 @@ chkhosts () {
 	return 0
 }
 
+# Function that checks OS version and architecture
 checkos() {
 	echo "Checking OS version..."
         	arch=$(cat /proc/version | gawk '{print $3}')
@@ -132,6 +136,7 @@ checkos() {
 	fi
 }
 
+# Function that checks if a bridge interface is bridged correctly
 chkbridge () {
                 echo -ne "\tChecking if $1 is bridged to eth${1:(-1)}..."
                 bridged=`brctl show $1 | gawk '!/^bridge|^\t/ {print $4}'`
@@ -149,6 +154,7 @@ chkbridge () {
 
 } 
 
+# Function that checks if the network interfaces are configured correctly
 chkiface() {
 	echo "Checking network interfaces"
 	ifaces=( `ifconfig -a | sed 's/[ \t].*//;/^\(lo\|\|v.*\)$/d'` )
@@ -193,6 +199,7 @@ chkiface() {
 	return 0
 }
 
+# Function that tries to ping all the addresses listed in /etc/hosts
 pingtest() {
 	echo "Ping tests on /etc/hosts addresses..."
 	hosts=( `cat /etc/hosts | gawk '!/127.0.0.1|::1|^#|^'$HOSTNAME'/ && /./ {print $1","$2}'` )
@@ -213,6 +220,7 @@ pingtest() {
 	return 0
 }
 
+# Function to check if hostname follows our naming convention
 chkname () {
 	echo -n "Checking hostname pattern against *.*.cloudtop.ph"
 	if [[ "$HOSTNAME" = *"."*".cloudtop.ph" ]]; then
@@ -226,6 +234,7 @@ chkname () {
 	fi
 }
 
+# Function to check cluster configuration and if services are setup properly
 chkcluster () {
 	echo -n "Validating cluster config..."
 	ccs_config_validate
@@ -299,6 +308,7 @@ chkcluster () {
 	return 0
 }
 
+# Function to test if ssh rsa key authentication is already setup
 testssh () {
 	echo -n "Test ssh to $1..."
 	ssh -o BatchMode=yes $1 'exit'
@@ -315,6 +325,7 @@ testssh () {
 	fi
 }
 
+# Function to check if autostart of the VMs is already configured
 chkvmstart () {
 	echo -n "Checking if start_vm.sh exists..."
 	if [ -f "/root/start_vm.sh" ]; then
@@ -341,6 +352,8 @@ chkvmstart () {
 	return 0
 }
 
+
+# Function to check if all the VMs have corresponding xml files and if migration works
 chkvmxml () {
 	local xmldir=/shared/system/definitions/
 	echo "Checking if xml files are complete"
@@ -412,6 +425,7 @@ chkvmxml () {
 	return 0	
 }
 
+# Function to check the exit status number, and exit if it is not 0
 error () {
 	if [ $1 -ne 0 ]; then
 		exit $1
