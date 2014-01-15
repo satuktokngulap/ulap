@@ -11,14 +11,14 @@ fi
 $DRBDADM create-md r{0..1}
 modprobe drbd
 
-$DRBDADM attach r{0..1}
-$DRBDADM connect r{0..1}
-sleep 5
+$DRBDADM up r{0..1}
 
 # Clear bitmap on node sa
 MYNAME="`uname -n`"
 if [ "$(echo $MYNAME | gawk -F'.' '{print $1}')" = "sa" ]; then
-       $DRBDADM -- --clear-bitmap new-current-uuid r{0..1}
+	$DRBDADM -- --overwrite-data-of-peer primary r{0..1}
+else
+	$DRBDADM invalidate r{0..1}
 fi
 
 service DRBD stop
