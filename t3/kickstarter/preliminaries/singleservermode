@@ -37,7 +37,16 @@ for VM in $(clustat | gawk '!/Service/ && !/-/ && /vm:/ {print $1}'); do
 	esac
 done
 
-$LOG "VM services have been migrated to the local node. Shutting down peer..."
-ssh root@$DEAD.$MYCLUSTER.t3.cloudtop.ph poweroff
+$LOG "VM services have been migrated to the local node."
+$LOG "Checking who owns NFS service at the moment"
+nfsowner=$(clustat -s nfs-shared | gawk '!/Service/ && !/-------/ {print $2}')
+$LOG "nfs-home is hosted on owner: $nfsowner"
+if [ "$nfsowner" != "$MYNAME" ]; then
+	$LOG "Migrating nfs-shared to $ALIVE.$MYCLUSTER.cloudtop.ph"
+	clusvcadm -r nfs-shared -m $ALIVE.$MYCLUSTER.cloudtop.ph
+fi
+
+$LOG "Shutting down $DEAD.$MYCLUSTER.cloudtop.ph..."
+ssh root@$DEAD.$MYCLUSTER.cloudtop.ph poweroff
 
 $LOG "Done!"
