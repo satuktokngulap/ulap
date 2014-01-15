@@ -425,6 +425,60 @@ chkvmxml () {
 	return 0	
 }
 
+# Function to files and config files for power management
+chkpower () {
+	local config=/etc/power_mgmt.cfg
+	local exc=/usr/sbin/powerdaemon
+	local dir=/usr/scripts/powerdaemon/src
+
+	echo "check if config file exists"
+		echo -ne "locating power_mgmt.conf..."
+		if [ -f config ]; then
+			echo -n "power management config file exists"
+			echo_success
+		else
+			echo -n "file not found!"
+			echo_failure
+			return 1
+		fi
+
+	echo "check if executable file exists"
+		echo -ne "locating executable file..."
+		if [ -f exc ]; then
+			echo -n "power management config file exists"
+			echo_success
+			echo -ne "check if file is executable..."
+			if [ -x exc ]; then
+				echo -n "file is executable"
+				echo_success
+			else
+				echo -n "file not set to executable!"
+				echo_failure
+				return 1
+		else
+			echo -n "file not found!"
+			echo_failure
+			return 1
+		fi
+
+	echo "check if script directory exists"
+		echo -ne "locating directory..."
+		if [ -d dir ]; then
+			echo -n "power management scripts directory exists"
+			echo_success
+		else
+			echo -n "directory not found!"
+			echo_failure
+			return 1
+
+	echo "check chkconfig if power management is included"
+
+
+	echo "check if power management was autostarted"
+
+	return 0
+}
+
 # Function to check the exit status number, and exit if it is not 0
 error () {
 	if [ $1 -ne 0 ]; then
