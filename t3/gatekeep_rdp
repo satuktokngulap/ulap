@@ -1,0 +1,227 @@
+#!/bin/bash
+
+# Gatekeeper script for RDP
+
+RED=$(tput setaf 1)
+GREEN=$(tput setaf 2)
+NORMAL=$(tput sgr0)
+COL=80
+
+TIMESTAMP=$(date +%m-%d-%y_%H:%M)
+LOG="/home/rdpadmin/gatekeep_$STAMP"
+HOSTNAME=$(uname -a|gawk '{print $2}')
+SCHOOLID=$(echo $HOSTNAME | gawk -F'.' '{print $2}')
+
+echo_success(){
+	#echo -e $i "[\033[60G\033[31m[ FAILED \033[0m]"
+	echo -e "\033[80G[$GREEN OK $NORMAL]"
+	return $TRUE
+}
+
+echo_failure(){
+	echo -e "\033[80G[$RED FAIL $NORMAL]"
+	return $TRUE
+}
+
+checkos() {
+	echo "Checking OS version.."
+		description=$(cat /etc/linuxmint/info | sed -n '4p'|cut -f2 -d\=| tr -d '"')
+		edition=$(cat /etc/linuxmint/info | sed -n '3p'|cut -f2 -d\=| tr -d '"')
+	        echo -ne "\t$description $edition"
+	       	if [ "$description" = "Linux Mint 13 Maya" -a "$edition" = "MATE 64-bit" ]; then
+	                echo_success
+        	        echo
+			return 0
+		else
+	        	echo  "Incorrect version!"
+	       		echo_failure
+	        	echo
+			return 1
+		fi
+}
+
+checkhosts(){
+	echo "Checking Hostnames.. "
+	hostnames=( "virtualip.$SCHOOLID.cloudtop.ph" "ldap.$SCHOOLID.cloudtop.ph" "rdpa.$SCHOOLID.cloudtop.ph" "rdpb.$SCHOOLID.cloudtop.ph" )
+	for i in "${hostnames[@]}"
+		do
+			echo -ne "\t$i.. "
+			#grep $i /etc/hosts >> $LOG
+			if [ $? -eq 0 ]; then
+			echo -n "found"
+			echo_success
+		else
+			echo -n "missing!"
+			echo_failure
+			return 1
+		fi
+	done
+	echo
+	return 0
+} 
+
+checknetwork(){
+	echo "Checking Network Interfacees.. "
+	ifaces=( `cat /proc/net/dev | sed '1,3d' | cut -d':' -f 1 | tr -d ' '` )
+	for i in "${ifaces[@]}"
+		do
+			case $i in
+			eth0)
+				ipaddr=`ifconfig $i | grep 'inet addr:' | cut -d: -f2 | awk '{print $1}'`
+				gateway=`echo $ipaddr | gawk -F. '{print $1"."$2"."$3".1"}'`
+				echo -ne "\t$i $ipaddr\n"
+				echo -ne "\tPinging gateway $gateway "
+				chkping=`ping -c 4 $gateway`
+				if [ $? -eq 0 ]; then
+	                        	echo_success
+	                        	echo
+	                	else
+	                        	echo_failure
+	                        	echo
+	                        return 1
+	                fi
+			;;
+			eth1)
+				ipaddr=`ifconfig $i | grep 'inet addr:' | cut -d: -f2 | awk '{print $1}'`
+				echo -ne "\t$i $ipaddr\n"
+			esac
+		done
+	return 0
+}
+
+pingtest(){
+	echo "Ping test on /etc/hosts addresses.. "
+	hosts=( `cat /etc/hosts|grep cloudtop.ph|sed "s/\t/,/g"`  )
+	for i in ${hosts[@]}
+		do
+			echo -ne "\tPinging $i.. " # |tee -a $LOG
+			hostname=$(echo $hosts | gawk -F, '{print $2}')
+			ping -c 4 $hostname  >> /dev/null
+			if [ $? -eq 0 ]; then
+				echo_success
+			else
+				echo_failure
+				return 1
+			fi
+		done
+	echo -ne "\tPinging google.com.. "
+	internet=`ping -c 4 google.com | grep 'received' | awk -F',' '{ print $2}' | awk '{ print $1}'`
+	if [ $internet -gt 0 ]; then
+		echo -ne "internet connection available!"
+		echo_success
+	else
+		echo -ne "internet connection not available!"
+		echo_failure
+	fi
+	echo
+	return 0
+}			
+
+checkxrdp() {
+        echo "Checking xRDP version.."
+                commit=$(git --git-dir=/home/rdpadmin/xrdp/.git log|sed -n '1p'|cut -f2 -d ' ')
+                echo -ne "\t$commit"
+                if [ "$commit" = "c46fe065bed9fa25982699c5256b25fa972de08c" ]; then
+                        echo_success
+                        echo
+                        return 0
+                else
+                        echo  "Incorrect version!"
+                        echo_failure
+                        echo
+                        return 1
+                fi
+}
+
+xrdptest(){
+	echo "Checking if xrdp process and xrdp-sesman process is running.. "
+	process=( `ps aux|grep xrdp|grep -v "colour=auto"|awk '{print $11}'|gawk -F/ '{print $5}'` )
+	if [[ -z ${process[@]} ]]; then
+		echo -ne "\txrdp is ..not running!"
+                echo_failure
+		echo -ne "\txrdp-sesman ..not running!"
+		echo_failure
+	else 
+		for i in "${process[@]}"	
+		do
+			case $i in
+			xrdp)
+				pid=`ps aux|grep '\/usr\/local\/sbin\/xrdp$'|awk '{print $2}'`
+				echo -ne "\t PID $pid $i"
+				if [ "${process[0]}" = "xrdp"  ]; then
+					echo -ne " ..running!"
+					echo_success
+				else
+					echo -ne " ..not running"
+					echo_failure
+					return 1
+				fi
+			;;
+			xrdp-sesman)
+				pid=`ps aux|grep '\/usr\/local\/sbin\/xrdp\-sesman$'|awk '{print $2}'`
+				echo -ne "\t PID $pid $i"
+				if [ "${process[1]}" = "xrdp-sesman"  ]; then
+                                	echo -ne " ..running!"
+                                        echo_success
+                                else
+                                        echo -ne " ..not running!"
+                                        echo_failure
+					return 1
+                                fi
+			;;
+			esac
+		done
+	fi
+	echo
+}
+
+checksnmp(){
+	echo "Checking if snmpd service is running and configured properly.. "
+	status=`service snmpd status`
+	if [[ $status = " * snmpd is running" ]]; then
+		echo -ne "\tsnmpd ..running!"
+		echo_success
+		rocommunity=$(cat /etc/snmp/snmpd.conf|grep -i "rocommunity cloudtopt3")
+                rouser=$(cat /etc/snmp/snmpd.conf|grep -i "rouser snmpuser authpriv")
+                if [ "$rocommunity" = "rocommunity CLOUDTOPT3" -a "$rouser" = "rouser snmpuser authpriv" ]; then
+			echo -ne "\tsnmp ..configured properly!"
+			echo_success
+			echo
+		else
+			echo -ne "\tsnmp ..not configured properly!"
+			echo_failure
+			echo
+		fi
+	else
+		echo -ne "\tsnmpd ..not running!"
+		echo -ne "\n\tPlease start snmpd service"
+		echo_failure
+		echo
+		return 1
+	fi
+}
+
+checklb(){
+	echo "Checking if loadbalancer script is installed.. "
+	if [ -d /opt/server_lb -a -f /opt/server_lb/xrdp_sessions.py  ]; then
+		echo -ne "\tLoad Balancer ..is installed!"
+		echo_success
+	else
+		echo -ne "\tLoad Balancer ..is not installed!"
+		echo_failure
+	fi
+	
+}
+
+checknfs(){
+	
+}
+
+checkos
+checkhosts
+checknetwork
+pingtest
+xrdptest
+checkxrdp
+checksnmp
+checklb
