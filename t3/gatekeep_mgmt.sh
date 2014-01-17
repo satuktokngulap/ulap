@@ -1,8 +1,11 @@
 #!/bin/bash
 
-#Function for checking mgmt
+SCHID=$1
+LOG="~/gatekeep_mgmt_$STAMP"
+
+#Function for checking hostname
 chkname(){
-	SCHID=$1
+	
 	echo -n "Checking if host name is in the proper format..."
 	if [[ "$(hostname)" = "ldap.$SCHID.cloudtop.ph" ]]; then
 		echo_success
@@ -29,10 +32,11 @@ chksslcert(){
 
 #Function for checking if SSL cert can be retrieved over the network
 chkssl(){
-	SCHID=$1
+	
 	echo -n "Checking if openssl connection to this VM works..."
 	timeout 5 openssl s_client -connect ldap.$SCHID.cloudtop.ph:636 &> out
 	ERR=$(cat out | grep err | grep -v "self signed certificate")
+	
 	if [ -z $ERR ]; then
 		echo_success
 		echo "No errors found but certificate must be replaced if self-signed."
@@ -44,8 +48,6 @@ chkssl(){
 	fi
 }
 
-chkschooladminaccess(){
-	
-}
+
 
 
