@@ -6,21 +6,33 @@
 ##	4. olcDatabase config file for LDAP for sys-ads have olcAccess and olcIndex configured
 ##	
 
-## What this script does:
-## - update host name and create SSL certificate for it
-## - add the olcAccess for clients' LDAP
-## - replacement of olcSuffix for client LDAP
-## - update of olcRootDN (for {2}bdb.ldif)
-## - update of olcRootPW (for {0}config.ldif, {2}bdb.ldif, {3}bdb.ldif)
-## - add the password policy and replication modules
-## - add cn=auth,dc=cloudtop,dc=ph
-## - add password policies for the server
-## -
 
-## Parameters (in exact order)
-## - school ID (based on DepEd spreadsheet) [SCHID]
-## - school name (based on DepEd spreadsheet) [SCHNAME]
-## - municipality of the school [SCHMUN]
-## - region of the school [SCHREG]
-## - TEMPORARY password to be used [TMPPWD]
-## 
+Scripts are to be executed in the following order:
+
+t3-server.sh
+t3-server1.sh
+t3-clients-initials.sh
+admins-initials.sh
+
+The arguments for each script is as follows:
+
+NOTE: ANY SCHOOL DETAIL IS EXPECTED TO BE BASED ON THE DepEd spreadsheet.
+	  It is advised that double quotes (") are used for all the arguments.
+
+t3-server.sh, t3-server1.sh, t3-clients-initials.sh (required)
+--------------------------------------------------------------
+	- school ID
+	- school name
+	- school municipality
+	- school region
+	- a temporary password
+
+t3-clients-initials.sh (optional, following the required parameters)
+--------------------------------------------------------------------
+	- school division
+	- school district
+	- province ID (from the DepEd spreadsheet)
+
+admins-initial.sh (required)
+----------------------------
+	- a temporary password
