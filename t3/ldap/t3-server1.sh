@@ -1,5 +1,19 @@
 #!/bin/bash
 
+# Author: Carlo Santos
+# 
+#
+# This script is the second part of setting-up an LDAP server for Tier 3 
+# after a reboot by the first script (t3-server.sh)
+# This script does the following:
+# - Creates/replaces the SSL certificate of the LDAP server
+# - Updates rsyslog to include slapd logging
+# - Updates hosts.allow to allow all for slapd
+# - Checks configuration via slaptest and enables slapd
+# - Adds password policy and replication modules
+# - Adds password policy configuration to LDAP
+# - Creates a referral object that points from LDAP B (sysads) to LDAP A (clients) 
+
 SCHID=$1
 SCHNAME=$2
 SCHMUN=$3
@@ -100,8 +114,16 @@ dn: l=$SCHREG,dc=cloudtop,dc=ph
 objectClass: locality
 l: $SCHREG
 
-db: st=$SCHMUN,l=$SCHREG,dc=cloudtop,dc=ph
+dn: st=$SCHMUN,l=$SCHREG,dc=cloudtop,dc=ph
 objectClass: locality
 st: $SCHMUN
 l: $SCHREG
+
+dn: $DN
+objectClass: referral
+objectClass: extensibleObject
+o: $SCHID $SCHNAME
+ref: ldaps://ldap.$SCHID.cloudtop.ph/$DN
 EOF
+
+ldapadd -xvD "cn=config" -H ldaps:/// -w $TMPPWD -f overlays.ldif

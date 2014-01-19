@@ -1,5 +1,20 @@
 #!/bin/bash
 
+# Author: Carlo Santos
+# 
+#
+# This script is the first part of setting-up an LDAP server for Tier 3.
+# This script does the following:
+# - Enable SELINUX
+# - Update the host name
+# - Update access control lists 
+# - Update LDAP Root DNs
+# - Update LDAP Root Passwords
+# - Update LDAP Suffix
+# - Reboots VM to make changes to hostname permanent
+#
+# Note: This LDAP server setup hols 2 LDAP trees
+
 SCHID=$1
 SCHNAME=$2
 SCHMUN=$3
@@ -89,3 +104,5 @@ cat /etc/openldap/slapd.d/cn=config/olcDatabase={2}bdb.ldif | grep olcRootPW
 cat /etc/openldap/slapd.d/cn=config/olcDatabase={3}bdb.ldif | grep olcRootPW
 
 echo "Updated Base DN, root DN, and passwords"
+
+reboot

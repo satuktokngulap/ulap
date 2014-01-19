@@ -1,5 +1,16 @@
 #!/bin/sh
 
+# Author: Carlo Santos
+# 
+#
+# This script is the third part of setting-up an LDAP server for Tier 3 
+# after t3-server1.sh.
+# This script does the following:
+# - Adds the initial entries for the LDAP server for clients
+# - Adds default password policy for clients
+# - Creates local administration accounts, one for the system and one for data
+
+
 SCHID=$1
 SCHNAME=$2
 SCHMUN=$3
