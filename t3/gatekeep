@@ -547,9 +547,6 @@ chkpower () {
 			echo
 		else
 			echo -n "file not found!"
-			echo_failure
-			echo
-			return 1
 		fi
 
 	echo "check if executable file exists"
@@ -663,7 +660,6 @@ chkstartup () {
 # Function to check the return value, and exit if it is not 0
 # This is used to check the return value of each function after it is run
 # If a check fails, the gatekeep script exits.
-
 error () {
 	if [ $1 -ne 0 ]; then
 		exit $1
