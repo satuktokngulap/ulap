@@ -539,26 +539,26 @@ chkpower () {
 	local exc=/usr/sbin/powerdaemon
 	local dir=/usr/scripts/powerdaemon/src
 
-	echo "check if config file exists"
-		echo -ne "locating power_mgmt.conf..."
+	echo "Check if config file exists"
+		echo -e "\tLocating power_mgmt.conf..."
 		if [ -f $config ]; then
-			echo -n "power management config file exists"
+			echo -ne "\t\tPower management config file exists"
 			echo_success
 			echo
 		else
 			echo -n "file not found!"
 		fi
 
-	echo "check if executable file exists"
-		echo -ne "locating executable file..."
+	echo "Check if executable file exists"
+		echo -e "\tLocating executable file..."
 		if [ -f $exc ]; then
-			echo -n "power management config file exists"
+			echo -ne "\t\tPower management config file exists"
 			echo_success
-			echo -ne "check if file is executable..."
+			echo
+			echo -ne "\tCheck if file is executable..."
 			if [ -x $exc ]; then
 				echo -n "file is executable"
 				echo_success
-				echo
 				echo
 			else
 				echo -n "file not set to executable!"
@@ -573,10 +573,10 @@ chkpower () {
 			return 1
 		fi
 
-	echo "check if script directory exists"
-		echo -ne "locating directory..."
+	echo "Check if script directory exists"
+		echo -e "\tLocating directory..."
 		if [ -d $dir ]; then
-			echo -n "power management scripts directory exists"
+			echo -ne "\t\tPower management scripts directory exists"
 			echo_success
 			echo
 		else
@@ -586,12 +586,12 @@ chkpower () {
 			return 1
 		fi
 
-	echo "check chkconfig if power management is included"
+	echo "Check chkconfig if power management is included"
 		#skipped for now
 
-	echo "check if power management was autostarted"
+	echo -n "Check if power management was autostarted..."
 		local status=`service powerinit status`
-		if [[ $? -=eq 0 ]]; then
+		if [[ $? -eq 0 ]]; then
 			echo -ne "started"
 			echo_success
 			echo
@@ -607,7 +607,7 @@ chkpower () {
 # Function for checking BT Sync Components
 chkbt () {
 	#check config file
-
+	echo
 	#check for executable file
 
 
@@ -626,7 +626,7 @@ chkstartup () {
 	for srvc in ${start_on[@]}
 	do
 		echo -ne "\tCheck $srvc..."
-		srvcstart=`chkconfig --list $srvc | gawk '{ print $4 }'
+		srvcstart=`chkconfig --list $srvc | gawk '{ print $4 }'`
 		echo -n "$srvcstart"
 		if [ "$srvcstart" = "2:on" ]; then
 			echo_success
@@ -642,7 +642,7 @@ chkstartup () {
 	for srvc in ${start_off[@]}
 	do
 		echo -ne "\tCheck $srvc..."
-		srvcstart=`chkconfig --list $srvc | gawk '{ print $4 }'
+		srvcstart=`chkconfig --list $srvc | gawk '{ print $4 }'`
 		echo -n "$srvcstart"
 		if [ "$srvcstart" = "2:off" ]; then
 			echo_success
@@ -798,6 +798,10 @@ testssh $PEER # Try to ssh to peer via hostname
 error $?
 
 testssh $( gethostip -d $PEER ) # Try to ssh to peer via IP address
+error $?
+
+# Check power management
+chkpower
 error $?
 
 # If all the tests are OK, the LOG file is deleted.
