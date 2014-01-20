@@ -720,7 +720,6 @@ error $?
 testssh $( gethostip -d $PEER ) # Try to ssh to peer via IP address
 error $?
 
-
 # If all the tests are OK, the LOG file is deleted.
 # If there are tests that failed, LOG file is retained so that
 # the gatekeeper can review the dumped outputs.
