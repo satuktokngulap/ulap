@@ -533,6 +533,89 @@ chkvmxml () {
 	return 0	
 }
 
+# Function to check files and config files for power management
+chkpower () {
+	local config=/etc/power_mgmt.cfg
+	local exc=/usr/sbin/powerdaemon
+	local dir=/usr/scripts/powerdaemon/src
+
+	echo "check if config file exists"
+		echo -ne "locating power_mgmt.conf..."
+		if [ -f $config ]; then
+			echo -n "power management config file exists"
+			echo_success
+			echo
+		else
+			echo -n "file not found!"
+			echo_failure
+			echo
+			return 1
+		fi
+
+	echo "check if executable file exists"
+		echo -ne "locating executable file..."
+		if [ -f $exc ]; then
+			echo -n "power management config file exists"
+			echo_success
+			echo -ne "check if file is executable..."
+			if [ -x $exc ]; then
+				echo -n "file is executable"
+				echo_success
+				echo
+				echo
+			else
+				echo -n "file not set to executable!"
+				echo_failure
+				echo
+				return 1
+			fi
+		else
+			echo -n "file not found!"
+			echo_failure
+			echo
+			return 1
+		fi
+
+	echo "check if script directory exists"
+		echo -ne "locating directory..."
+		if [ -d $dir ]; then
+			echo -n "power management scripts directory exists"
+			echo_success
+			echo
+		else
+			echo -n "directory not found!"
+			echo_failure
+			echo
+			return 1
+		fi
+
+	echo "check chkconfig if power management is included"
+		#skipped for now
+
+	echo "check if power management was autostarted"
+		local status=`service powerinit status`
+		if [[ $? -=eq 0 ]]; then
+			echo -ne "started"
+			echo_success
+			echo
+		else
+			echo -ne "not started or failed!"
+			echo_failure
+			return 1
+		fi
+
+	return 0
+}
+
+# Function for checking BT Sync Components
+chkbt () {
+	#check config file
+
+	#check for executable file
+
+
+}
+
 # Function to check if services are properly set to on or off
 # at startup. Uses `chkconfig --list` to check.
 chkstartup () {
@@ -580,6 +663,7 @@ chkstartup () {
 # Function to check the return value, and exit if it is not 0
 # This is used to check the return value of each function after it is run
 # If a check fails, the gatekeep script exits.
+
 error () {
 	if [ $1 -ne 0 ]; then
 		exit $1
@@ -719,7 +803,6 @@ error $?
 
 testssh $( gethostip -d $PEER ) # Try to ssh to peer via IP address
 error $?
-
 
 # If all the tests are OK, the LOG file is deleted.
 # If there are tests that failed, LOG file is retained so that
