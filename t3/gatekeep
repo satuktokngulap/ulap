@@ -460,6 +460,7 @@ chkpower () {
 				echo_failure
 				echo
 				return 1
+			fi
 		else
 			echo -n "file not found!"
 			echo_failure
