@@ -436,9 +436,11 @@ chkpower () {
 		if [ -f $config ]; then
 			echo -n "power management config file exists"
 			echo_success
+			echo
 		else
 			echo -n "file not found!"
 			echo_failure
+			echo
 			return 1
 		fi
 
@@ -452,13 +454,16 @@ chkpower () {
 				echo -n "file is executable"
 				echo_success
 				echo
+				echo
 			else
 				echo -n "file not set to executable!"
 				echo_failure
+				echo
 				return 1
 		else
 			echo -n "file not found!"
 			echo_failure
+			echo
 			return 1
 		fi
 
@@ -471,6 +476,7 @@ chkpower () {
 		else
 			echo -n "directory not found!"
 			echo_failure
+			echo
 			return 1
 
 	echo "check chkconfig if power management is included"
@@ -493,7 +499,11 @@ chkpower () {
 
 # Function for checking BT Sync Components
 chkbt () {
-	
+	#check config file
+
+	#check for executable file
+
+
 }
 
 # Function to check the exit status number, and exit if it is not 0
