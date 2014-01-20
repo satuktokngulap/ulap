@@ -1,25 +1,51 @@
 #!/bin/bash
+# ---------------------------------------------------------
+# T3 2-NODE DRBD BUILD GATEKEEPER SCRIPT - Baremetal Checks - v0.1
+# ---------------------------------------------------------
+# This is the official script used by Cloud Team to gatekeep
+# T3 2-node DRBD baremetal setups. It runs a series of config and 
+# service checks to verify if the servers have been properly configured.
+# If an error is encountered in any step of the the gatekeeping checks,
+# the script exits with a value of 1
+#
+# ALL THE GATEKEEPING CHECKS CONDUCTED BY THE SCRIPT SHOULD RETURN
+# OK FOR THE BUILD TO BE READY FOR DEPLOYMENT/USE!!!
+#
+# Author: Isabel Montes
+# Latest Update: January 17, 2014
+# ---------------------------------------------------------
 
-# Gatekeeper script
 
+# Include init.d "functions" file, to be able to use echo_success and
+# echo_failure functions
 . /etc/init.d/functions
 
+# Take time stamp to be used for the log/dump file
 STAMP=$(date +%m%d%y%H%M)
+
+# Redirectcommands that output to standard output to the following $LOG file
 LOG="/root/gatekeep_$STAMP"
-HOSTNAME=$(uname -n)
+
+# Define variables
+HOSTNAME=$(uname -n) # the baremetal's hostname
 ME=${HOSTNAME:0:2}
 CLUSTER="$(echo $HOSTNAME | gawk -F'.' '{print $2}')"
 if [ "$ME" = "sa" ]; then
+	# If I am node "sa", then my peer must be node "sb"
         PEER="sb.$CLUSTER.cloudtop.ph"
 else PEER="sa.$CLUSTER.cloudtop.ph"
 fi
+
+# Enumerate the VMs that are expected to be running on the baremetal
 vms=( "a_vm_ldap" "a_vm_rdpminta" "b_vm_lms" "b_vm_rdpmintb" )
 
-# Function that checks the DRBD config
+# Function that checks the DRBD config and DRBD service status
 drbdconfig(){
 	ret=0
 	echo -n "Checking DRBD config..." | tee -a $LOG
 	
+	# drbdadm dump will dump the DRBD config to $LOG and
+	#will return 0 if no errors are encountered
 	drbdadm dump >> $LOG
 	if [ $? -eq 0 ]; then
         	echo -n "no errors"
@@ -31,6 +57,9 @@ drbdconfig(){
 	        echo
 		ret=1
 	fi
+
+	# Check the drbd service status. This will indicate if
+	# drbd module was properly loaded
 	echo -n "Checking DRBD status..."
 	local drbd=`service drbd status | gawk '/drbd driver/ {print $4}'`
 	if [ "$drbd" = "OK;" ]; then
@@ -44,13 +73,18 @@ drbdconfig(){
 		ret=1
 	fi
 	
+	# Use the drbd-overview command to check the number of resources
+	# If the command returns incorrect number of lines, either there
+	# are incorrect number of resources defined, or the resources
+	# are still syncing
 	echo -n "Counting number of DRBD resources..."
 	if [ $(drbd-overview | wc -l) -eq 2 ]; then
+		# The latest build should have 2 resources defined
 	        echo -n "2 resources"
 	        echo_success
 	        echo
 	else
-	        echo -n "incorrect number of resources!"
+	        echo -n "incorrect no. of resources or resources are syncing"
 	        echo_failure
 	        echo
 		ret=1
@@ -59,14 +93,15 @@ drbdconfig(){
 	return $ret	
 }
 
-# Function that checks drbd status, and the states of the DRBD resources
+# Function that checks states of each drbd resource
+# Function accepts an array of resource names and does checks on each one
 drbdcheck() {
 	drbdret=0
 	for re in $@
         do
 		echo -e "\t$re status: "
         	local states=( `drbd-overview | gawk '/'$re'/ {print $2" "$3" "$4}'` )
-
+		# Connection state must be "Connected"
         	echo -ne "\t\tConnection state: ${states[0]}"
 	        if [ "${states[0]}" = "Connected" ]; then
 	                echo_success
@@ -75,7 +110,8 @@ drbdcheck() {
 			echo_failure
 			drbdret=1
 	        fi
-	
+		
+		# Resources must be configured as both Primary
 	        echo -ne "\t\tRole: ${states[1]}"
 	        if [ "${states[1]}" = "Primary/Primary" ]; then
 	                echo_success
@@ -85,6 +121,7 @@ drbdcheck() {
 			drbdret=1
 	        fi
 	
+		# The disks have to be both UpToDate
 	        echo -ne "\t\tDisk state: ${states[2]}"
 	        if [ "${states[2]}" = "UpToDate/UpToDate" ]; then
 	                echo_success
@@ -98,8 +135,17 @@ drbdcheck() {
 }
 
 # Function that checks if the /etc/hosts entries are complete
+# These entries are used by various services configured/installed
+# in our T3 build. Function uses a simple grep to find if /etc/hosts
+# contains the all the hostnames. No checks are done to verify
+# if the correct IP addresses are matched against the hostnames.
+# This could be added later on as an enhancement of the check, but it
+# is assumed that any errors in this area will also probably be detected
+# when the network checks and VM checks are executed.
 chkhosts () {
+	# List of hostnames that must appear in /etc/hosts
 	hostnames=( $HOSTNAME $PEER "ipmi.$HOSTNAME" "ipmi.$PEER" "ldap.$CLUSTER.cloudtop.ph" "ldap.local" "lms.local" "rdpminta.local" "rdpmintb.local" "puppetmaster.cloudtop.ph" "virtualip.$CLUSTER.cloudtop.ph" )
+
 	for name in ${hostnames[@]}
 	do
 		echo -ne "\t$name..."
@@ -118,7 +164,8 @@ chkhosts () {
 	return 0
 }
 
-# Function that checks OS version and architecture
+# Function that checks OS version and architecture. Our T3 2-node
+# DRBD build should be using CentOS 6.4 x86_64 architecture
 checkos() {
 	echo "Checking OS version..."
         	arch=$(cat /proc/version | gawk '{print $3}')
@@ -136,7 +183,13 @@ checkos() {
 	fi
 }
 
-# Function that checks if a bridge interface is bridged correctly
+# Function that checks if bridge interface is properly configured. This
+# is used by the chkiface() function.
+# It accepts an argument and looks for this in brctl show and checks
+# if it is properly bridged to the correct eth interface. This check simply
+# verifies if the trailing numbers of the interface names are matching
+#	i.e. interface br0 should be bridged to eth0
+#	     and interface br1 shouldbe bridged to eth1
 chkbridge () {
                 echo -ne "\tChecking if $1 is bridged to eth${1:(-1)}..."
                 bridged=`brctl show $1 | gawk '!/^bridge|^\t/ {print $4}'`
@@ -154,19 +207,35 @@ chkbridge () {
 
 } 
 
-# Function that checks if the network interfaces are configured correctly
+# Function that checks if the network interfaces are configured correctly.
+# The baremetal should have 4 interfaces configured: br0, br1, eth0, and eth1
+# br0 and br1 are bridged to eth0 and eth1 respectively.
+# br0 should be configured with an IP address.
 chkiface() {
 	echo "Checking network interfaces"
 	ifaces=( `ifconfig -a | sed 's/[ \t].*//;/^\(lo\|\|v.*\)$/d'` )
+
+	# Check if there are indeed 4 interfaces
+	if [ ${#ifaces[@]} -ne 4 ]; then
+		echo -n "incorrect # of interfaces!"
+		echo_failure
+		echo
+		return 1
+	fi
+
 	for i in ${ifaces[@]}
 	do
 		case $i in
 		br0)
+			# Check if br0 has an IP address
 			ip=`ifconfig $i | grep 'inet addr:' | cut -d: -f2 | awk '{ print $1}'`
+			# Check if br0 is a bridged interface
 			chkbridge $i
 			if [ $? -ne 0 ]; then
 				return 1
 			fi
+
+			# Check if gateway is pingable
 			gateway=`echo $ip | gawk -F. '{print $1"."$2"."$3".1"}'`
         	        echo -ne "\t$i $ip...pinging gateway $gateway "
 	                chkping=`ping -c 2 $gateway`
@@ -180,6 +249,7 @@ chkiface() {
 	                fi
 		;;
 		br1)
+			# Check if br1 is a bridged interface
 	                chkbridge $i
 	                if [ $? -ne 0 ]; then
 	                        return 1
@@ -192,7 +262,12 @@ chkiface() {
 			echo
 		;;
 		*)
-			echo "\t$i $ip"
+			# Check fails if interface does not follow naming
+			# convention
+			echo "\t$i $ip - unexpected interface!"
+			echo_failure
+			echo
+			return 1
 		;;
 		esac
 	done
@@ -220,7 +295,8 @@ pingtest() {
 	return 0
 }
 
-# Function to check if hostname follows our naming convention
+# Function to check if hostname follows our naming convention pattern:
+# 	i.e. <sa|sb>.<School ID>.cloudtop.ph
 chkname () {
 	echo -n "Checking hostname pattern against *.*.cloudtop.ph"
 	if [[ "$HOSTNAME" = *"."*".cloudtop.ph" ]]; then
@@ -235,6 +311,8 @@ chkname () {
 }
 
 # Function to check cluster configuration and if services are setup properly
+# - Uses ccs_config_validate to validate the current /etc/cluster/cluster.conf
+# - Uses rg_test noop command to test the services and VMs
 chkcluster () {
 	echo -n "Validating cluster config..."
 	ccs_config_validate
@@ -252,6 +330,7 @@ chkcluster () {
 
 	for service in ${services[@]}
 	do
+		# rg_test the services:
 		echo -n "Testing $service..." | tee -a $LOG
 		rg_test noop /etc/cluster/cluster.conf start service $service >> $LOG
 		if [ $? -eq 0 ]; then
@@ -265,6 +344,10 @@ chkcluster () {
 		fi
 	done
 
+	# Does a simple check of service status for nfs-shared service,
+	# instead of the rg_test, because rg_test is expected to fail if
+	# the test is not being run on the server currently owning the
+	# service.
 	echo -n "Checking if nfsservice is started..." | tee -a $LOG
 	nfsservice=`clustat -s nfs-shared | gawk '!/^ Service|^ -/ {print $3}'`
 	if [ "$nfsservice" = "started" ]; then
@@ -278,7 +361,7 @@ chkcluster () {
 		return 1
 	fi
 	
-
+	# Run rg_test check on the vms that are expected to be configured
 	for vm in ${vms[@]}
 	do
 		echo -n "Testing $vm..." | tee -a $LOG
@@ -294,6 +377,7 @@ chkcluster () {
 		fi
 	done
 
+	# Check if cman cluster manager is running
 	echo -n "Checking if cman is running..."
 	service cman status
 	if [ $? -eq 0 ]; then
@@ -308,7 +392,13 @@ chkcluster () {
 	return 0
 }
 
-# Function to test if ssh rsa key authentication is already setup
+# Function to test if ssh via rsa key authentication is configured correctly.
+# The two servers in the cluster should be able to root ssh to one another
+# without having to enter a password. This functionality is required by some
+# of the clustering/vm migration implementations.
+# The function accepts the name of the peer server as an argument,
+# and tries to ssh to it using BatchMode=yes. The ssh in batch mode will
+# fail if a password is still needed for authentication.
 testssh () {
 	echo -n "Test ssh to $1..."
 	ssh -o BatchMode=yes $1 'exit'
@@ -325,7 +415,13 @@ testssh () {
 	fi
 }
 
-# Function to check if autostart of the VMs is already configured
+# Function to check if autostart of the VMs is already configured.
+# Two things are checked by the function:
+# 1. There should be a start_vm.sh file under the root directory. This
+#    is the script that calls the commands to start the VMs once the
+#    storage service is already started
+# 2. There should be a line in the /etc/rc.local file that calls
+#    the start_vm.sh script at startup
 chkvmstart () {
 	echo -n "Checking if start_vm.sh exists..."
 	if [ -f "/root/start_vm.sh" ]; then
@@ -353,20 +449,32 @@ chkvmstart () {
 }
 
 
-# Function to check if all the VMs have corresponding xml files and if migration works
+# Function to check if all the VMs have corresponding xml files.
+# The function also checks and if migration works, as these make use
+# of the xml files saved in the directory defined in the cluster.conf
+# file.
 chkvmxml () {
+	# The directory of the xml files as configured in
+	# the /etc/cluster/cluster.conf file
 	local xmldir=/shared/system/definitions/
 	echo "Checking if xml files are complete"
 	for vm in ${vms[@]}
 	do
 		echo -ne "\tLocating $vm.xml..."
+		# Check if the xml file exists
 		if [ -f ${xmldir}${vm}.xml ]; then
 			echo -n "found."
 			echo_success
 			echo
 
+			# Test migration
 			echo -ne "\tTesting migration..."
 			local owner=`clustat -s vm:$vm | gawk '!/^ Service|^ -/ {print $2}'`
+
+			# If the owner is server "sa", do migration to "sb"
+			# then back to "sa";
+			# If the owner is server "sb", do migration to "sa"
+			# then back to "sb";
 			case $owner in
 				$HOSTNAME )
 					clusvcadm -M vm:$vm -m $PEER >> $LOG
@@ -425,7 +533,7 @@ chkvmxml () {
 	return 0	
 }
 
-# Function to files and config files for power management
+# Function to check files and config files for power management
 chkpower () {
 	local config=/etc/power_mgmt.cfg
 	local exc=/usr/sbin/powerdaemon
@@ -439,9 +547,6 @@ chkpower () {
 			echo
 		else
 			echo -n "file not found!"
-			echo_failure
-			echo
-			return 1
 		fi
 
 	echo "check if executable file exists"
@@ -479,12 +584,13 @@ chkpower () {
 			echo_failure
 			echo
 			return 1
+		fi
 
 	echo "check chkconfig if power management is included"
 		#skipped for now
 
 	echo "check if power management was autostarted"
-		local status=`service powerinit status 
+		local status=`service powerinit status`
 		if [[ $? -=eq 0 ]]; then
 			echo -ne "started"
 			echo_success
@@ -507,7 +613,53 @@ chkbt () {
 
 }
 
-# Function to check the exit status number, and exit if it is not 0
+# Function to check if services are properly set to on or off
+# at startup. Uses `chkconfig --list` to check.
+chkstartup () {
+	# Services that should be on at startup
+	start_on=( cman rgmanager iptables )
+
+	# Services that should be off at startup
+	start_off=( clvmd libvirtd drbd )
+	
+	echo "Check startup services:"
+	for srvc in ${start_on[@]}
+	do
+		echo -ne "\tCheck $srvc..."
+		srvcstart=`chkconfig --list $srvc | gawk '{ print $4 }'
+		echo -n "$srvcstart"
+		if [ "$srvcstart" = "2:on" ]; then
+			echo_success
+			echo
+		else
+			echo_failure
+			echo
+			return 1
+		fi
+	done
+	
+	echo "Checking services that should be off at startup:"
+	for srvc in ${start_off[@]}
+	do
+		echo -ne "\tCheck $srvc..."
+		srvcstart=`chkconfig --list $srvc | gawk '{ print $4 }'
+		echo -n "$srvcstart"
+		if [ "$srvcstart" = "2:off" ]; then
+			echo_success
+			echo
+		else
+			echo_failure
+			echo
+			return 1
+		fi
+	done
+	
+	return 0
+}
+
+# Function to check the return value, and exit if it is not 0
+# This is used to check the return value of each function after it is run
+# If a check fails, the gatekeep script exits.
 error () {
 	if [ $1 -ne 0 ]; then
 		exit $1
@@ -516,6 +668,10 @@ error () {
 
 ret=0
 
+# Allow a user to run only selected functions within the gatekeep script
+# User can pass the function names as arguments to `./gatekeep` and
+# The script will attempt to run commands, and dump outputs to a 
+# log file appended with ".<function name>"
 if [ $# -ne 0 ]; then
 	for command in $@
 	do
@@ -526,6 +682,8 @@ if [ $# -ne 0 ]; then
 	exit $?
 fi
 
+# If no arguments are passed to `./gatekeep`, proceed to 
+# run all the checks.
 echo
 echo "###############################"
 echo "T3 Gatekeeping - DRBD Build"
@@ -533,13 +691,11 @@ echo "Dumping output to: $LOG"
 echo "###############################"
 echo
 
-# Hostname
+# HOSTNAME - Check hostname naming convention
 chkname
 error $?
 
-# DISK SCTRUCTURE AND CAPACITY
-
-# Check disk sizes
+# Disk Structure and Capacity - Check disk sizes
 echo -n "Checking sda size..."
 sda=`parted -s /dev/sda print | gawk '/Disk/ {print $3}'`
 echo -n "$sda"
@@ -571,38 +727,46 @@ echo "Checking if /etc/hosts entries are complete..."
 chkhosts
 error $?
 
-# Check DRBD
+# DRBD Checks
+# Check the config
 drbdconfig
 error $?
 
+# Check the status of resources
 echo "Checking status of resources..."
 res=( `drbd-overview | gawk -F'[: ]' '{print $4}'` )
 drbdcheck ${res[@]}
 error $?
 
-# OS
+# OS Version and Architecture check
 checkos
 error $?
 
-# Network
+# Network Checks
+# Check the interfaces
 chkiface
 error $?
 
+# Do a ping test to all the addresses listed in /etc/hosts
 pingtest
 error $?
 
-# Cluster
+# Cluster Configuration checks
 chkcluster
 error $?
 
-# VMs
+# VM Checks
+# Check if VMs are configured to autostart
 chkvmstart
 error $?
 
+# Check if the VM xml files exist in the expected directory
 chkvmxml
 error $?
 
-# Access
+# Access checks
+# Check if 'cloud' user is part of the 'libvirt' group; This required
+# to allow the 'cloud' user to manage the VMs remotely via virt-manager
 echo -n "Checking if cloud user is added to libvirt group..."
 if [ -z "$(grep ^libvirt /etc/group | gawk '/cloud/')" ]; then
 	echo_failure
@@ -613,7 +777,7 @@ else
 	echo
 fi
 
-# SNMP
+# Check SNMP Service
 echo -n "Checking if SNMP is running..."
 service snmpd status
 if [ $? -eq 0 ]; then
@@ -625,13 +789,20 @@ else
 	exit 1
 fi
 
-# SSH KEYS
-testssh $PEER
+# Check startup services
+chkstartup
 error $?
 
-testssh $( gethostip -d $PEER )
+# Check if ssh authenticatio via rsa keys is configured correctly
+testssh $PEER # Try to ssh to peer via hostname
 error $?
 
+testssh $( gethostip -d $PEER ) # Try to ssh to peer via IP address
+error $?
+
+# If all the tests are OK, the LOG file is deleted.
+# If there are tests that failed, LOG file is retained so that
+# the gatekeeper can review the dumped outputs.
 if [ $ret -eq 0 ]; then
 	echo "All tests OK."
 	rm -f $LOG
