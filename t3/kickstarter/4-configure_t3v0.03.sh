@@ -58,6 +58,7 @@ PRELIMPATH="${DIR}/preliminaries/"
 DRBDPATH="${DIR}/drbd/"
 CLUSPATH="${DIR}/cluster/"
 LVMPATH="${DIR}/lvm/"
+LIBVIRTPATH="${DIR}/libvirt/"
 PRELIMS="${PRELIMPATH}install_preliminaries.sh"
 
 # Source: http://www.linuxjournal.com/content/validating-ip-address-bash-script
@@ -187,6 +188,11 @@ mv /tmp/cluster.conf /etc/cluster/cluster.conf
 echo "Configuring LVM2-cluster..."
 cp /etc/lvm/lvm.conf /etc/lvm/lvm.conf.bak
 cp ${LVMPATH}lvm.conf /etc/lvm/lvm.conf
+
+# Copy predefined libvirtd.conf file into the appropriate directory
+echo "Configuring libvirtd..."
+cp /etc/libvirt/libvirtd.conf /etc/libvirt/libvirtd.conf.bak
+cp ${LIBVIRTPATH}libvirtd.conf /etc/libvirt/libvirtd.conf
 
 # Copy the start_vm.sh file into root directory.
 # This is used to start the VMs automatically at startup
