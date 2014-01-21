@@ -1,28 +1,52 @@
 #!/bin/bash
 
-# Gatekeeper script for RDP
+# ---------------------------------------------------------
+# T3 2-NODE DRBD BUILD GATEKEEPER SCRIPT - RDP VM Checks - v0.1
+# ---------------------------------------------------------
+# This is the official script used by Cloud Team to gatekeep
+# T3 2-node DRBD Build RDP VMs. It runs a series of config and 
+# service checks to verify if the VMs have been properly configured.
+# If an error is encountered in any step of the the gatekeeping checks,
+# the script exits with a value of 1
+#
+# ALL THE GATEKEEPING CHECKS CONDUCTED BY THE SCRIPT SHOULD RETURN
+# OK FOR THE BUILD TO BE READY FOR DEPLOYMENT/USE!!!
+#
+# Author: Kenan Virtucio
+# Latest Update: January 21, 2014
+# ---------------------------------------------------------
 
+# Define colors for displaying if check is a success or failure
 RED=$(tput setaf 1)
 GREEN=$(tput setaf 2)
 NORMAL=$(tput sgr0)
 COL=80
 
+# Take timestamp to append to the LOG file to which outputs will be dumped
 TIMESTAMP=$(date +%m-%d-%y_%H:%M)
 LOG="/home/rdpadmin/gatekeep_$STAMP"
+
+# Define hostname of the VM
 HOSTNAME=$(uname -a|gawk '{print $2}')
+
+# Extract the school ID from the Hostname
 SCHOOLID=$(echo $HOSTNAME | gawk -F'.' '{print $2}')
 
+# Function that prints an OK; to be used for successful checks
 echo_success(){
 	#echo -e $i "[\033[60G\033[31m[ FAILED \033[0m]"
 	echo -e "\033[80G[$GREEN OK $NORMAL]"
 	return $TRUE
 }
 
+# Function that prints FAIL; to be used for unsuccessful checks
 echo_failure(){
 	echo -e "\033[80G[$RED FAIL $NORMAL]"
 	return $TRUE
 }
 
+# Function that checks if the VM is using the correct OS version
+# RDP VMs should be using Linux Mint 13 Maya, MATE 64-bit edition
 checkos() {
 	echo "Checking OS version.."
 		description=$(cat /etc/linuxmint/info | sed -n '4p'|cut -f2 -d\=| tr -d '"')
@@ -40,6 +64,13 @@ checkos() {
 		fi
 }
 
+# Function that checks if the VM's /etc/hosts file has all the entries required by our T3 builds:
+# 	1. virtualip.<school ID>.cloudtop.ph
+#	2. ldap.<school ID>.cloudtop.ph
+#	3. rdpa.<school ID>.cloudtop.ph
+#	4. rdpb.<school ID>.cloudtop.ph
+# Function currently does not further check whether the corresponding addresses are
+# assigned correctly.
 checkhosts(){
 	echo "Checking Hostnames.. "
 	hostnames=( "virtualip.$SCHOOLID.cloudtop.ph" "ldap.$SCHOOLID.cloudtop.ph" "rdpa.$SCHOOLID.cloudtop.ph" "rdpb.$SCHOOLID.cloudtop.ph" )
@@ -60,6 +91,9 @@ checkhosts(){
 	return 0
 } 
 
+# Function that checks if the network interfaces are correctly configured
+# 	eth0: should have an IP address and must be able to ping the gateway
+#	eth1: should have an IP address in the internal IP address block
 checknetwork(){
 	echo "Checking Network Interfacees.. "
 	ifaces=( `cat /proc/net/dev | sed '1,3d' | cut -d':' -f 1 | tr -d ' '` )
@@ -89,6 +123,10 @@ checknetwork(){
 	return 0
 }
 
+# Function that tries to ping all the addresses defined in /etc/hosts
+# Pings that fail would indicate that either there is something wrong
+# with the interface configuration, the IP address assignment, or
+# the target host being pinged is down
 pingtest(){
 	echo "Ping test on /etc/hosts addresses.. "
 	hosts=( `cat /etc/hosts|grep cloudtop.ph|sed "s/\t/,/g"`  )
@@ -117,6 +155,9 @@ pingtest(){
 	return 0
 }			
 
+# Function that checks if the VM is running the correct xRDP version
+# it does a string compare to verify if the correct commit is the one
+# installed
 checkxrdp() {
         echo "Checking xRDP version.."
                 commit=$(git --git-dir=/home/rdpadmin/xrdp/.git log|sed -n '1p'|cut -f2 -d ' ')
@@ -133,6 +174,7 @@ checkxrdp() {
                 fi
 }
 
+# Function that checks if xrdp process and xrdp-sesman services are running
 xrdptest(){
 	echo "Checking if xrdp process and xrdp-sesman process is running.. "
 	process=( `ps aux|grep xrdp|grep -v "colour=auto"|awk '{print $11}'|gawk -F/ '{print $5}'` )
@@ -175,6 +217,8 @@ xrdptest(){
 	echo
 }
 
+# RDP VMs must have snmp service running. This function checks if SNMP is running
+# and if the correct rocommunity and rouser have been configured
 checksnmp(){
 	echo "Checking if snmpd service is running and configured properly.. "
 	status=`service snmpd status`
@@ -201,6 +245,7 @@ checksnmp(){
 	fi
 }
 
+# Function that checks if the loadbalancer script has been installed
 checklb(){
 	echo "Checking if loadbalancer script is installed.. "
 	if [ -d /opt/server_lb -a -f /opt/server_lb/xrdp_sessions.py  ]; then
@@ -213,15 +258,83 @@ checklb(){
 	
 }
 
+# Function that checks NFS
 checknfs(){
 	
 }
 
+# Function to check the return value, and exit if it is not 0
+# This is used to check the return value of each function after it is run
+# If a check fails, the gatekeep script exits.
+error () {
+        if [ $1 -ne 0 ]; then
+                exit $1
+        fi
+}
+
+ret=0
+
+# Allow a user to run only selected functions within the gatekeep script
+# User can pass the function names as arguments to `./gatekeep` and
+# The script will attempt to run commands, and dump outputs to a 
+# log file appended with ".<function name>"
+if [ $# -ne 0 ]; then
+        for command in $@
+        do
+                LOG="$LOG.$command"
+                type $command &>/dev/null && $command || echo "Error running '"$command"'!"
+                error $?
+        done
+        exit $?
+fi
+
+# If no arguments are passed to `./gatekeep`, proceed to 
+# run all the checks.
+echo
+echo "###############################"
+echo "T3 Gatekeeping - RDP VM Checks"
+echo "Dumping output to: $LOG"
+echo "###############################"
+echo
+
+# Check OS version
 checkos
+error $?
+
+# Check the /etc/hosts entries
 checkhosts
+error $?
+
+# Check network configuration
 checknetwork
+error $?
+
 pingtest
+error $?
+
+# Check xRDP
 xrdptest
+error $?
+
 checkxrdp
+error $?
+
+# Check snmp
 checksnmp
+error $?
+
+# Check loadbalancer
 checklb
+error $?
+
+# If all the tests are OK, the LOG file is deleted.
+# If there are tests that failed, LOG file is retained so that
+# the gatekeeper can review the dumped outputs.
+if [ $ret -eq 0 ]; then
+        echo "All tests OK."
+        rm -f $LOG
+else
+        echo "Some tests failed. Please review $LOG file."
+fi
+
+exit $ret
