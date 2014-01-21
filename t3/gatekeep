@@ -763,6 +763,33 @@ chkusers () {
         return 0
 }
 
+# Checks if SNMP service is running and if the correct rocommunity has been configured
+checksnmp(){
+        echo "Checking if snmpd service is running and configured properly.. "
+        status=`service snmpd status`
+        if [[ $status = " * snmpd is running" ]]; then
+                echo -ne "\tsnmpd ..running!"
+                echo_success
+                rocommunity=$(cat /etc/snmp/snmpd.conf|grep -i "rocommunity cloudtopt3")
+                #rouser=$(cat /etc/snmp/snmpd.conf|grep -i "rouser snmpuser authpriv")
+                if [ "$rocommunity" = "rocommunity CLOUDTOPT3" ]; then
+                        echo -ne "\tsnmp ..configured properly!"
+                        echo_success
+                        echo
+                else
+                        echo -ne "\tsnmp ..not configured properly!"
+                        echo_failure
+                        echo
+                fi
+        else
+                echo -ne "\tsnmpd ..not running!"
+                echo -ne "\n\tPlease start snmpd service"
+                echo_failure
+                echo
+                return 1
+        fi
+}
+
 # Function to check the return value, and exit if it is not 0
 # This is used to check the return value of each function after it is run
 # If a check fails, the gatekeep script exits.
@@ -875,16 +902,8 @@ chkusers
 error $?
 
 # Check SNMP Service
-echo -n "Checking if SNMP is running..."
-service snmpd status
-if [ $? -eq 0 ]; then
-	echo_success
-	echo
-else
-	echo_failure
-	echo
-	exit 1
-fi
+chksnmp
+error $?
 
 # Check startup services
 chkstartup
