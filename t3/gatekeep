@@ -480,6 +480,7 @@ chkvmxml () {
 					clusvcadm -M vm:$vm -m $PEER >> $LOG
 					if [ $? -eq 0 ]; then
 						echo -n "to ${PEER:0:2} [ok]; "
+						sleep 5
 						clusvcadm -M vm:$vm -m $HOSTNAME >> $LOG
 						if [ $? -ne 0 ]; then
 							echo -n "to ${HOSTNAME:0:2} [failed]; "
@@ -502,6 +503,7 @@ chkvmxml () {
 					clusvcadm -M vm:$vm -m $HOSTNAME >> $LOG
 					if [ $? -eq 0 ]; then
 						echo -n "to ${HOSTNAME:0:2} [ok]; "
+						sleep 5
 						clusvcadm -M vm:$vm -m $PEER >> $LOG
 						if [ $? -ne 0 ]; then
 							echo -n "to ${PEER:0:2} [failed]; "
