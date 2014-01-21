@@ -14,7 +14,7 @@ class t3-base-install-prelim {
                      export https_proxy='http://10.225.1.245:8080'"
     }
     notify{"Setting up as CloudTop Base server":}
-    include cloudtop-base
+    include cloudtop-t3-base
 
     # Check restrict tick.redhat
     
