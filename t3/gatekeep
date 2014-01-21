@@ -657,6 +657,110 @@ chkstartup () {
 	return 0
 }
 
+# Function that checks if users 'cloud' and 'sysad' have been created, if they have the 
+# correct groups, and if they have been configured as sudoers correctly
+#       cloud user will be used by the Cloud Team for remote management.
+#       sysad user will be used by non Cloud Team members for management
+#               and troubleshooting. Only a select set of commands are
+#               permitted for the sysad account
+chkusers () {
+        # Check if users exist
+        echo -n "Checking if cloud user exists..." | tee -a $LOG
+        id cloud >> $LOG
+        if [ $? -eq 1 ]; then
+                echo -n "no user 'cloud'!"
+                echo_failure
+                echo
+                return 1
+        else
+                echo -n "user cloud exists"
+                echo_success
+                echo
+                echo -n "Checking if sysad user exists..." | tee -a $LOG
+                id sysad >> $LOG
+                if [ $? -eq 1 ]; then
+                        echo -n "no user 'sysad'!"
+                        echo_failure
+                        echo
+                        return 1
+                else
+                        echo -n "user sysad exists"
+                        echo_success
+                        echo
+                fi
+        fi
+
+        # Access checks
+        # Check if 'cloud' and 'sysad' users are part of the 'libvirt' group; This required
+        # to allow the user to manage the VMs remotely via virt-manager
+        echo -n "Checking if cloud user is added to libvirt group..."
+        if [ -z "$(grep ^libvirt /etc/group | gawk '/cloud/')" ]; then
+                echo_failure
+                echo
+                return 1
+        else
+                echo_success
+                echo
+                echo -n "Checking if sysad user is added to libvirt group..."
+                if [ -z "$(grep ^libvirt /etc/group | gawk '/sysad/')" ]; then
+                        echo_failure
+                        echo
+                        return 1
+                else
+                        echo_success
+                        echo
+                fi
+        fi
+
+        # sudoers check: check the sudoers file if the required lines have
+        # been entered correctly
+
+        echo -n "Checking if Cmnd_Alias SYSADCMD is defined..." | tee -a $LOG
+        grep -F "Cmnd_Alias SYSADCMD = /bin/ls, /bin/cat, /bin/grep, /usr/bin/tail, /usr/bin/head, /usr/bin/top, /usr/bin/virsh, /bin/ping, /bin/netstat, /sbin/ifconfig, /sbin/poweroff, /sbin/shutdown, /sbin/service cman status, /sbin/service rgmanager status, /sbin/service clvmd status, /sbin/service libvirtd status, /sbin/service drbd status, /sbin/service gfs2 status, /home/sysad/check_services.sh, /sbin/service cman status, /usr/sbin/ccs_config_validate, /sbin/parted -s /dev/sda print free, /sbin/parted -s /dev/sdb print free" /etc/sudoers >> $LOG
+        if [ $? -eq 1 ]; then
+                echo_failure
+                echo
+                return 1
+        else
+                echo_success
+                echo
+        fi
+
+        echo -n "Checking if cloud user has correct sudo config..."
+        grep -F "cloud ALL=NOPASSWD: /sbin/poweroff, /sbin/reboot, /sbin/shutdown" /etc/sudoers >> $LOG
+        if [ $? -eq 1 ]; then
+                echo -n "missing/incorrect sudoers entry for cloud!"
+                echo_failure
+                echo
+                return 1
+        else
+                            grep -F "cloud ALL=(ALL) ALL" /etc/sudoers >> $LOG
+                if [ $? -eq 1 ]; then
+                        echo -n "missing/incorrect sudoers entry for cloud!"
+                        echo_failure
+                        echo
+                        return 1
+                else
+                        echo_success
+                        echo
+                fi
+        fi
+
+        echo -n "Checking if sysad user has correct sudo config..."
+        grep -F "sysad ALL=(ALL) SYSADCMD" /etc/sudoers >> $LOG
+        if [ $? -eq 1 ]; then
+                echo -n "missing/incorrect sudoers entry for sysad!"
+                echo_failure
+                echo
+                return 1
+        else
+                echo_success
+                echo
+        fi
+
+        return 0
+}
+
 # Function to check the return value, and exit if it is not 0
 # This is used to check the return value of each function after it is run
 # If a check fails, the gatekeep script exits.
@@ -765,17 +869,8 @@ chkvmxml
 error $?
 
 # Access checks
-# Check if 'cloud' user is part of the 'libvirt' group; This required
-# to allow the 'cloud' user to manage the VMs remotely via virt-manager
-echo -n "Checking if cloud user is added to libvirt group..."
-if [ -z "$(grep ^libvirt /etc/group | gawk '/cloud/')" ]; then
-	echo_failure
-	echo
-	exit 1
-else
-	echo_success
-	echo
-fi
+chkusers
+error $?
 
 # Check SNMP Service
 echo -n "Checking if SNMP is running..."
