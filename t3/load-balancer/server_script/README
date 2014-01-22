@@ -1,0 +1,9 @@
+Installation:
+
+1. Copy 'xrdp_sessions.py' into /opt/X11rdp/bin
+
+2. Add this line to /etc/rc.local before the 'exit' line:
+
+  /usr/bin/python /opt/X11rdp/bin/xrdp_sessions.py &
+
+3. Add kill_sessions.sh to cron.daily
