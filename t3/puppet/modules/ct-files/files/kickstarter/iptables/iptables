@@ -1,0 +1,89 @@
+# IPTABLES BAREMETAL
+# Firewall configuration written by system-config-firewall
+# Manual customization of this file is not recommended.
+*filter
+:INPUT ACCEPT [0:0]
+:FORWARD ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+
+# Allow PING
+-A INPUT -p icmp --icmp-type echo-request -j ACCEPT
+-A INPUT -i lo -j ACCEPT
+-A INPUT -p icmp --icmp-type echo-reply -j ACCEPT
+-A INPUT -p icmp --icmp-type destination-unreachable -j ACCEPT
+-A INPUT -p icmp --icmp-type time-exceeded -j ACCEPT
+
+#Reject known local networks
+-A INPUT -i eth0 -s 172.16.0.0/12 -j LOG --log-prefix "IP DROP SPOOF B: "
+-A INPUT -i eth0 -s 192.168.0.0/16 -j LOG --log-prefix "IP DROP SPOOF C: "
+-A INPUT -i eth0 -s 224.0.0.0/4 -j LOG --log-prefix "IP DROP MULTICAST D: "
+-A INPUT -i eth0 -s 240.0.0.0/5 -j LOG --log-prefix "IP DROP SPOOF E: "
+-A INPUT -i eth0 -d 127.0.0.0/8 -j LOG --log-prefix "IP DROP LOOPBACK: "
+
+#Allow Puppet daemons
+-A INPUT -m tcp -p tcp --dport 8140 -j ACCEPT
+
+#Allow HTTPS
+-A INPUT -m state --state NEW -m tcp -p tcp --dport 443 -j ACCEPT
+
+#Accept any established connections
+-A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+
+#Allow SSH
+-A INPUT -m state --state NEW -m tcp -p tcp --dport 22 -j ACCEPT
+
+##Allow SNMP traffic
+-A INPUT -m udp -p udp -s 10.225.1.201 --dport 161 -j ACCEPT
+
+##Allow Rsyslog traffic
+-A INPUT -m tcp -p tcp -d 10.225.1.200 --dport 514 -j ACCEPT
+
+##Allow NFS
+#Portmap
+-A INPUT -m udp -p udp -s NETWORK_ADDRESS/24 --dport 111 -j ACCEPT
+-A INPUT -m tcp -p tcp -s NETWORK_ADDRESS/24 --dport 111 -j ACCEPT
+#NFS
+-A INPUT -m tcp -p tcp -s NETWORK_ADDRESS/24 --dport 2049 -j ACCEPT
+-A INPUT -m udp -p udp -s NETWORK_ADDRESS/24 --dport 2049 -j ACCEPT
+#MOUNTD
+-A INPUT -m tcp -p tcp -s NETWORK_ADDRESS/24 --dport 892 -j ACCEPT
+-A INPUT -m udp -p udp -s NETWORK_ADDRESS/24 --dport 892 -j ACCEPT
+#NFS STATUS
+-A INPUT -m tcp -p tcp -s NETWORK_ADDRESS/24 --dport 662 -j ACCEPT
+-A INPUT -m udp -p udp -s NETWORK_ADDRESS/24 --dport 662 -j ACCEPT
+#NFS Lock Manager
+-A INPUT -m tcp -p tcp -s NETWORK_ADDRESS/24 --dport 32803  -j ACCEPT
+-A INPUT -m udp -p udp -s NETWORK_ADDRESS/24 --dport 32769 -j ACCEPT
+#NFS RQUOTAD
+-A INPUT -m tcp -p tcp -s NETWORK_ADDRESS/24 --dport 875 -j ACCEPT
+-A INPUT -m udp -p udp -s NETWORK_ADDRESS/24 --dport 875 -j ACCEPT
+
+#Allow DRBD
+-A INPUT -p tcp -m state --state NEW -m tcp -s PEER_NODE_IP --dport 7788:7789 -j ACCEPT
+-A OUTPUT -p tcp -m tcp -s PEER_NODE_IP --dport 7788:7789 -j ACCEPT
+
+#Allow CMAN
+-A INPUT -m state --state NEW -p udp -s PEER_NODE_IP --dport 5404 -j ACCEPT
+-A INPUT -m state --state NEW -p udp -s PEER_NODE_IP --dport 5405 -j ACCEPT
+
+#Allow RGManager
+-A INPUT -m state --state NEW -p tcp -s PEER_NODE_IP --dport 49152:49215 -j ACCEPT
+
+#Allow DLM
+-A INPUT -m state --state NEW -m multiport -p tcp -s PEER_NODE_IP --dports 21064 -j ACCEPT
+
+#Allow Modclusterd
+-A INPUT -m state --state NEW -m multiport -p tcp -s PEER_NODE_IP --dports 16851 -j ACCEPT
+
+#Allow Ricci
+-A INPUT -m state --state NEW -m multiport -p tcp -s PEER_NODE_IP --dports 11111 -j ACCEPT
+
+-A INPUT -j REJECT --reject-with icmp-host-prohibited
+-A FORWARD -j REJECT --reject-with icmp-host-prohibited
+-A INPUT -j LOG
+-A INPUT -j DROP
+COMMIT
+
+
+#Source: https://access.redhat.com/site/documentation/en-US/Red_Hat_Enterprise_Linux/5/html/Cluster_Administration/s1-iptables-CA.html
+#http://snarvaez.com.ar/libertad/index.php/2012/11/05/install-drbd-distributed-replicated-block-device-on-centos-6-3

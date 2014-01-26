@@ -1,0 +1,236 @@
+Loaded plugins: fastestmirror
+Loading mirror speeds from cached hostfile
+ * elrepo: elrepo.org
+Setting up Install Process
+Resolving Dependencies
+--> Running transaction check
+---> Package cman.x86_64 0:3.0.12.1-49.el6 will be installed
+--> Processing Dependency: clusterlib = 3.0.12.1-49.el6 for package: cman-3.0.12.1-49.el6.x86_64
+--> Processing Dependency: ricci >= 0.15.0-4 for package: cman-3.0.12.1-49.el6.x86_64
+--> Processing Dependency: openais >= 1.1.1-1 for package: cman-3.0.12.1-49.el6.x86_64
+--> Processing Dependency: modcluster >= 0.15.0-3 for package: cman-3.0.12.1-49.el6.x86_64
+--> Processing Dependency: fence-virt >= 0.2.3-1 for package: cman-3.0.12.1-49.el6.x86_64
+--> Processing Dependency: fence-agents >= 3.1.5-1 for package: cman-3.0.12.1-49.el6.x86_64
+--> Processing Dependency: corosync >= 1.4.1-10 for package: cman-3.0.12.1-49.el6.x86_64
+--> Processing Dependency: libcpg.so.4(COROSYNC_CPG_1.0)(64bit) for package: cman-3.0.12.1-49.el6.x86_64
+--> Processing Dependency: libconfdb.so.4(COROSYNC_CONFDB_1.0)(64bit) for package: cman-3.0.12.1-49.el6.x86_64
+--> Processing Dependency: libSaCkpt.so.3(OPENAIS_CKPT_B.01.01)(64bit) for package: cman-3.0.12.1-49.el6.x86_64
+--> Processing Dependency: /usr/bin/xsltproc for package: cman-3.0.12.1-49.el6.x86_64
+--> Processing Dependency: liblogthread.so.3()(64bit) for package: cman-3.0.12.1-49.el6.x86_64
+--> Processing Dependency: libfenced.so.3()(64bit) for package: cman-3.0.12.1-49.el6.x86_64
+--> Processing Dependency: libfence.so.4()(64bit) for package: cman-3.0.12.1-49.el6.x86_64
+--> Processing Dependency: libdlmcontrol.so.3()(64bit) for package: cman-3.0.12.1-49.el6.x86_64
+--> Processing Dependency: libdlm.so.3()(64bit) for package: cman-3.0.12.1-49.el6.x86_64
+--> Processing Dependency: libcpg.so.4()(64bit) for package: cman-3.0.12.1-49.el6.x86_64
+--> Processing Dependency: libconfdb.so.4()(64bit) for package: cman-3.0.12.1-49.el6.x86_64
+--> Processing Dependency: libcman.so.3()(64bit) for package: cman-3.0.12.1-49.el6.x86_64
+--> Processing Dependency: libccs.so.3()(64bit) for package: cman-3.0.12.1-49.el6.x86_64
+--> Processing Dependency: libSaCkpt.so.3()(64bit) for package: cman-3.0.12.1-49.el6.x86_64
+--> Running transaction check
+---> Package clusterlib.x86_64 0:3.0.12.1-49.el6 will be installed
+---> Package corosync.x86_64 0:1.4.1-15.el6_4.1 will be installed
+--> Processing Dependency: libnetsnmp.so.20()(64bit) for package: corosync-1.4.1-15.el6_4.1.x86_64
+---> Package corosynclib.x86_64 0:1.4.1-15.el6_4.1 will be installed
+--> Processing Dependency: librdmacm.so.1(RDMACM_1.0)(64bit) for package: corosynclib-1.4.1-15.el6_4.1.x86_64
+--> Processing Dependency: libibverbs.so.1(IBVERBS_1.1)(64bit) for package: corosynclib-1.4.1-15.el6_4.1.x86_64
+--> Processing Dependency: libibverbs.so.1(IBVERBS_1.0)(64bit) for package: corosynclib-1.4.1-15.el6_4.1.x86_64
+--> Processing Dependency: librdmacm.so.1()(64bit) for package: corosynclib-1.4.1-15.el6_4.1.x86_64
+--> Processing Dependency: libibverbs.so.1()(64bit) for package: corosynclib-1.4.1-15.el6_4.1.x86_64
+---> Package fence-agents.x86_64 0:3.1.5-25.el6_4.2 will be installed
+--> Processing Dependency: telnet for package: fence-agents-3.1.5-25.el6_4.2.x86_64
+--> Processing Dependency: sg3_utils for package: fence-agents-3.1.5-25.el6_4.2.x86_64
+--> Processing Dependency: python-suds for package: fence-agents-3.1.5-25.el6_4.2.x86_64
+--> Processing Dependency: pyOpenSSL for package: fence-agents-3.1.5-25.el6_4.2.x86_64
+--> Processing Dependency: pexpect for package: fence-agents-3.1.5-25.el6_4.2.x86_64
+--> Processing Dependency: perl-Net-Telnet for package: fence-agents-3.1.5-25.el6_4.2.x86_64
+--> Processing Dependency: perl(Net::Telnet) for package: fence-agents-3.1.5-25.el6_4.2.x86_64
+--> Processing Dependency: openssh-clients for package: fence-agents-3.1.5-25.el6_4.2.x86_64
+--> Processing Dependency: net-snmp-utils for package: fence-agents-3.1.5-25.el6_4.2.x86_64
+--> Processing Dependency: /usr/bin/virsh for package: fence-agents-3.1.5-25.el6_4.2.x86_64
+--> Processing Dependency: /usr/bin/ipmitool for package: fence-agents-3.1.5-25.el6_4.2.x86_64
+---> Package fence-virt.x86_64 0:0.2.3-13.el6 will be installed
+---> Package libxslt.x86_64 0:1.1.26-2.el6_3.1 will be installed
+---> Package modcluster.x86_64 0:0.16.2-20.el6 will be installed
+--> Processing Dependency: oddjob for package: modcluster-0.16.2-20.el6.x86_64
+--> Processing Dependency: dbus for package: modcluster-0.16.2-20.el6.x86_64
+---> Package openais.x86_64 0:1.1.1-7.el6 will be installed
+---> Package openaislib.x86_64 0:1.1.1-7.el6 will be installed
+---> Package ricci.x86_64 0:0.16.2-63.el6 will be installed
+--> Running transaction check
+---> Package dbus.x86_64 1:1.2.24-7.el6_3 will be installed
+--> Processing Dependency: dbus-libs = 1:1.2.24-7.el6_3 for package: 1:dbus-1.2.24-7.el6_3.x86_64
+---> Package ipmitool.x86_64 0:1.8.11-14.el6_4.1 will be installed
+---> Package libibverbs.x86_64 0:1.1.6-5.el6 will be installed
+---> Package librdmacm.x86_64 0:1.0.17-0.git4b5c1aa.el6 will be installed
+---> Package libvirt-client.x86_64 0:0.10.2-18.el6_4.5 will be installed
+--> Processing Dependency: pm-utils for package: libvirt-client-0.10.2-18.el6_4.5.x86_64
+--> Processing Dependency: nc for package: libvirt-client-0.10.2-18.el6_4.5.x86_64
+--> Processing Dependency: libnuma.so.1(libnuma_1.2)(64bit) for package: libvirt-client-0.10.2-18.el6_4.5.x86_64
+--> Processing Dependency: libnuma.so.1(libnuma_1.1)(64bit) for package: libvirt-client-0.10.2-18.el6_4.5.x86_64
+--> Processing Dependency: libgnutls.so.26(GNUTLS_1_4)(64bit) for package: libvirt-client-0.10.2-18.el6_4.5.x86_64
+--> Processing Dependency: gnutls-utils for package: libvirt-client-0.10.2-18.el6_4.5.x86_64
+--> Processing Dependency: gettext for package: libvirt-client-0.10.2-18.el6_4.5.x86_64
+--> Processing Dependency: cyrus-sasl-md5 for package: libvirt-client-0.10.2-18.el6_4.5.x86_64
+--> Processing Dependency: libyajl.so.1()(64bit) for package: libvirt-client-0.10.2-18.el6_4.5.x86_64
+--> Processing Dependency: libnuma.so.1()(64bit) for package: libvirt-client-0.10.2-18.el6_4.5.x86_64
+--> Processing Dependency: libnl.so.1()(64bit) for package: libvirt-client-0.10.2-18.el6_4.5.x86_64
+--> Processing Dependency: libgnutls.so.26()(64bit) for package: libvirt-client-0.10.2-18.el6_4.5.x86_64
+--> Processing Dependency: libavahi-common.so.3()(64bit) for package: libvirt-client-0.10.2-18.el6_4.5.x86_64
+--> Processing Dependency: libavahi-client.so.3()(64bit) for package: libvirt-client-0.10.2-18.el6_4.5.x86_64
+---> Package net-snmp-libs.x86_64 1:5.5-44.el6_4.1 will be installed
+--> Processing Dependency: libsensors.so.4()(64bit) for package: 1:net-snmp-libs-5.5-44.el6_4.1.x86_64
+---> Package net-snmp-utils.x86_64 1:5.5-44.el6_4.1 will be installed
+---> Package oddjob.x86_64 0:0.30-5.el6 will be installed
+---> Package openssh-clients.x86_64 0:5.3p1-84.1.el6 will be installed
+--> Processing Dependency: openssh = 5.3p1-84.1.el6 for package: openssh-clients-5.3p1-84.1.el6.x86_64
+--> Processing Dependency: libedit.so.0()(64bit) for package: openssh-clients-5.3p1-84.1.el6.x86_64
+---> Package perl-Net-Telnet.noarch 0:3.03-11.el6 will be installed
+---> Package pexpect.noarch 0:2.3-6.el6 will be installed
+---> Package pyOpenSSL.x86_64 0:0.10-2.el6 will be installed
+---> Package python-suds.noarch 0:0.4.1-3.el6 will be installed
+---> Package sg3_utils.x86_64 0:1.28-4.el6 will be installed
+--> Processing Dependency: sg3_utils-libs = 1.28-4.el6 for package: sg3_utils-1.28-4.el6.x86_64
+--> Processing Dependency: libsgutils2.so.2()(64bit) for package: sg3_utils-1.28-4.el6.x86_64
+---> Package telnet.x86_64 1:0.17-47.el6_3.1 will be installed
+--> Running transaction check
+---> Package avahi-libs.x86_64 0:0.6.25-12.el6 will be installed
+---> Package cyrus-sasl-md5.x86_64 0:2.1.23-13.el6_3.1 will be installed
+--> Processing Dependency: cyrus-sasl-lib = 2.1.23-13.el6_3.1 for package: cyrus-sasl-md5-2.1.23-13.el6_3.1.x86_64
+---> Package dbus-libs.x86_64 1:1.2.24-5.el6_1 will be updated
+---> Package dbus-libs.x86_64 1:1.2.24-7.el6_3 will be an update
+---> Package gettext.x86_64 0:0.17-16.el6 will be installed
+--> Processing Dependency: libgomp.so.1(GOMP_1.0)(64bit) for package: gettext-0.17-16.el6.x86_64
+--> Processing Dependency: cvs for package: gettext-0.17-16.el6.x86_64
+--> Processing Dependency: libgomp.so.1()(64bit) for package: gettext-0.17-16.el6.x86_64
+---> Package gnutls.x86_64 0:2.8.5-10.el6_4.1 will be installed
+--> Processing Dependency: libtasn1.so.3(LIBTASN1_0_3)(64bit) for package: gnutls-2.8.5-10.el6_4.1.x86_64
+--> Processing Dependency: libtasn1.so.3()(64bit) for package: gnutls-2.8.5-10.el6_4.1.x86_64
+---> Package gnutls-utils.x86_64 0:2.8.5-10.el6_4.1 will be installed
+---> Package libedit.x86_64 0:2.11-4.20080712cvs.1.el6 will be installed
+---> Package libnl.x86_64 0:1.1-14.el6 will be installed
+---> Package lm_sensors-libs.x86_64 0:3.1.1-17.el6 will be installed
+---> Package nc.x86_64 0:1.84-22.el6 will be installed
+---> Package numactl.x86_64 0:2.0.7-6.el6 will be installed
+---> Package openssh.x86_64 0:5.3p1-81.el6 will be updated
+--> Processing Dependency: openssh = 5.3p1-81.el6 for package: openssh-server-5.3p1-81.el6.x86_64
+---> Package openssh.x86_64 0:5.3p1-84.1.el6 will be an update
+---> Package pm-utils.x86_64 0:1.2.5-10.el6 will be installed
+--> Processing Dependency: hdparm for package: pm-utils-1.2.5-10.el6.x86_64
+--> Processing Dependency: hal for package: pm-utils-1.2.5-10.el6.x86_64
+---> Package sg3_utils-libs.x86_64 0:1.28-4.el6 will be installed
+---> Package yajl.x86_64 0:1.0.7-3.el6 will be installed
+--> Running transaction check
+---> Package cvs.x86_64 0:1.11.23-15.el6 will be installed
+---> Package cyrus-sasl-lib.x86_64 0:2.1.23-13.el6 will be updated
+--> Processing Dependency: cyrus-sasl-lib = 2.1.23-13.el6 for package: cyrus-sasl-2.1.23-13.el6.x86_64
+---> Package cyrus-sasl-lib.x86_64 0:2.1.23-13.el6_3.1 will be an update
+---> Package hal.x86_64 0:0.5.14-11.el6 will be installed
+--> Processing Dependency: hal-libs = 0.5.14-11.el6 for package: hal-0.5.14-11.el6.x86_64
+--> Processing Dependency: dmidecode >= 2.7 for package: hal-0.5.14-11.el6.x86_64
+--> Processing Dependency: cryptsetup-luks >= 1.0.1-2 for package: hal-0.5.14-11.el6.x86_64
+--> Processing Dependency: ConsoleKit >= 0.2.0 for package: hal-0.5.14-11.el6.x86_64
+--> Processing Dependency: hal-info for package: hal-0.5.14-11.el6.x86_64
+--> Processing Dependency: libhal.so.1()(64bit) for package: hal-0.5.14-11.el6.x86_64
+--> Processing Dependency: libhal-storage.so.1()(64bit) for package: hal-0.5.14-11.el6.x86_64
+---> Package hdparm.x86_64 0:9.16-3.4.el6 will be installed
+---> Package libgomp.x86_64 0:4.4.7-3.el6 will be installed
+---> Package libtasn1.x86_64 0:2.3-3.el6_2.1 will be installed
+---> Package openssh-server.x86_64 0:5.3p1-81.el6 will be updated
+---> Package openssh-server.x86_64 0:5.3p1-84.1.el6 will be an update
+--> Running transaction check
+---> Package ConsoleKit.x86_64 0:0.4.1-3.el6 will be installed
+--> Processing Dependency: libpolkit-gobject-1.so.0()(64bit) for package: ConsoleKit-0.4.1-3.el6.x86_64
+--> Processing Dependency: libck-connector.so.0()(64bit) for package: ConsoleKit-0.4.1-3.el6.x86_64
+---> Package cryptsetup-luks.x86_64 0:1.2.0-7.el6 will be installed
+--> Processing Dependency: cryptsetup-luks-libs = 1.2.0-7.el6 for package: cryptsetup-luks-1.2.0-7.el6.x86_64
+--> Processing Dependency: libcryptsetup.so.1(CRYPTSETUP_1.0)(64bit) for package: cryptsetup-luks-1.2.0-7.el6.x86_64
+--> Processing Dependency: libcryptsetup.so.1()(64bit) for package: cryptsetup-luks-1.2.0-7.el6.x86_64
+---> Package cyrus-sasl.x86_64 0:2.1.23-13.el6 will be updated
+---> Package cyrus-sasl.x86_64 0:2.1.23-13.el6_3.1 will be an update
+---> Package dmidecode.x86_64 1:2.11-2.el6 will be installed
+---> Package hal-info.noarch 0:20090716-3.1.el6 will be installed
+---> Package hal-libs.x86_64 0:0.5.14-11.el6 will be installed
+--> Running transaction check
+---> Package ConsoleKit-libs.x86_64 0:0.4.1-3.el6 will be installed
+---> Package cryptsetup-luks-libs.x86_64 0:1.2.0-7.el6 will be installed
+---> Package polkit.x86_64 0:0.96-2.el6_0.1 will be installed
+--> Processing Dependency: libeggdbus-1.so.0()(64bit) for package: polkit-0.96-2.el6_0.1.x86_64
+--> Running transaction check
+---> Package eggdbus.x86_64 0:0.6-3.el6 will be installed
+--> Finished Dependency Resolution
+
+Dependencies Resolved
+
+================================================================================
+ Package                 Arch      Version                     Repository  Size
+================================================================================
+Installing:
+ cman                    x86_64    3.0.12.1-49.el6             base       443 k
+Installing for dependencies:
+ ConsoleKit              x86_64    0.4.1-3.el6                 base        82 k
+ ConsoleKit-libs         x86_64    0.4.1-3.el6                 base        17 k
+ avahi-libs              x86_64    0.6.25-12.el6               base        54 k
+ clusterlib              x86_64    3.0.12.1-49.el6             base       100 k
+ corosync                x86_64    1.4.1-15.el6_4.1            updates    202 k
+ corosynclib             x86_64    1.4.1-15.el6_4.1            updates    183 k
+ cryptsetup-luks         x86_64    1.2.0-7.el6                 base        95 k
+ cryptsetup-luks-libs    x86_64    1.2.0-7.el6                 base        51 k
+ cvs                     x86_64    1.11.23-15.el6              base       711 k
+ cyrus-sasl-md5          x86_64    2.1.23-13.el6_3.1           base        47 k
+ dbus                    x86_64    1:1.2.24-7.el6_3            base       207 k
+ dmidecode               x86_64    1:2.11-2.el6                base        71 k
+ eggdbus                 x86_64    0.6-3.el6                   base        91 k
+ fence-agents            x86_64    3.1.5-25.el6_4.2            updates    161 k
+ fence-virt              x86_64    0.2.3-13.el6                base        37 k
+ gettext                 x86_64    0.17-16.el6                 base       1.8 M
+ gnutls                  x86_64    2.8.5-10.el6_4.1            updates    346 k
+ gnutls-utils            x86_64    2.8.5-10.el6_4.1            updates    100 k
+ hal                     x86_64    0.5.14-11.el6               base       375 k
+ hal-info                noarch    20090716-3.1.el6            base        56 k
+ hal-libs                x86_64    0.5.14-11.el6               base        69 k
+ hdparm                  x86_64    9.16-3.4.el6                base        72 k
+ ipmitool                x86_64    1.8.11-14.el6_4.1           updates    329 k
+ libedit                 x86_64    2.11-4.20080712cvs.1.el6    base        74 k
+ libgomp                 x86_64    4.4.7-3.el6                 base       118 k
+ libibverbs              x86_64    1.1.6-5.el6                 base        45 k
+ libnl                   x86_64    1.1-14.el6                  base       121 k
+ librdmacm               x86_64    1.0.17-0.git4b5c1aa.el6     base        47 k
+ libtasn1                x86_64    2.3-3.el6_2.1               base       238 k
+ libvirt-client          x86_64    0.10.2-18.el6_4.5           updates    4.0 M
+ libxslt                 x86_64    1.1.26-2.el6_3.1            base       452 k
+ lm_sensors-libs         x86_64    3.1.1-17.el6                base        38 k
+ modcluster              x86_64    0.16.2-20.el6               base       191 k
+ nc                      x86_64    1.84-22.el6                 base        57 k
+ net-snmp-libs           x86_64    1:5.5-44.el6_4.1            updates    1.5 M
+ net-snmp-utils          x86_64    1:5.5-44.el6_4.1            updates    172 k
+ numactl                 x86_64    2.0.7-6.el6                 base        69 k
+ oddjob                  x86_64    0.30-5.el6                  base        60 k
+ openais                 x86_64    1.1.1-7.el6                 base       192 k
+ openaislib              x86_64    1.1.1-7.el6                 base        82 k
+ openssh-clients         x86_64    5.3p1-84.1.el6              base       355 k
+ perl-Net-Telnet         noarch    3.03-11.el6                 base        56 k
+ pexpect                 noarch    2.3-6.el6                   base       147 k
+ pm-utils                x86_64    1.2.5-10.el6                base       108 k
+ polkit                  x86_64    0.96-2.el6_0.1              base       158 k
+ pyOpenSSL               x86_64    0.10-2.el6                  base       212 k
+ python-suds             noarch    0.4.1-3.el6                 base       218 k
+ ricci                   x86_64    0.16.2-63.el6               base       626 k
+ sg3_utils               x86_64    1.28-4.el6                  base       471 k
+ sg3_utils-libs          x86_64    1.28-4.el6                  base        51 k
+ telnet                  x86_64    1:0.17-47.el6_3.1           base        58 k
+ yajl                    x86_64    1.0.7-3.el6                 base        27 k
+Updating for dependencies:
+ cyrus-sasl              x86_64    2.1.23-13.el6_3.1           base        78 k
+ cyrus-sasl-lib          x86_64    2.1.23-13.el6_3.1           base       136 k
+ dbus-libs               x86_64    1:1.2.24-7.el6_3            base       127 k
+ openssh                 x86_64    5.3p1-84.1.el6              base       236 k
+ openssh-server          x86_64    5.3p1-84.1.el6              base       299 k
+
+Transaction Summary
+================================================================================
+Install      53 Package(s)
+Upgrade       5 Package(s)
+
+Total size: 16 M
+Total download size: 16 M
+Downloading Packages:
