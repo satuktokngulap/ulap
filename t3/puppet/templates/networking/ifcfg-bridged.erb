@@ -1,0 +1,30 @@
+# MANAGED BY PUPPET
+# Created for Cloudtop
+
+DEVICE=<%= device %>
+BOOTPROTO=<%= bootproto %>
+ONBOOT=<%= onboot %>
+NM_CONTROLLED=<%= nm %>
+
+<% if bootproto == "static" -%>
+IPADDR=<%= ipaddr %>
+NETMASK=<%= netmask %>
+<%     if broadcast -%>
+BROADCAST=<%= broadcast %>
+<%     end -%>
+<%     if gateway -%>
+GATEWAY=<%= gateway %>
+<%     end -%>
+<% end -%>
+TYPE=<%= interface_type %>
+<% if hwaddr -%>
+HWADDR=<%= hwaddr %>
+<% end -%>
+<% extra_args.each do |line| -%>
+<%= line %>
+<% end -%>
+
+<% if bridged == "true" -%>
+	VLAN=<%= vlan %>
+	BRIDGE=<%= bridge %>
+	
