@@ -480,6 +480,7 @@ chkvmxml () {
 					clusvcadm -M vm:$vm -m $PEER >> $LOG
 					if [ $? -eq 0 ]; then
 						echo -n "to ${PEER:0:2} [ok]; "
+						sleep 5
 						clusvcadm -M vm:$vm -m $HOSTNAME >> $LOG
 						if [ $? -ne 0 ]; then
 							echo -n "to ${HOSTNAME:0:2} [failed]; "
@@ -502,6 +503,7 @@ chkvmxml () {
 					clusvcadm -M vm:$vm -m $HOSTNAME >> $LOG
 					if [ $? -eq 0 ]; then
 						echo -n "to ${HOSTNAME:0:2} [ok]; "
+						sleep 5
 						clusvcadm -M vm:$vm -m $PEER >> $LOG
 						if [ $? -ne 0 ]; then
 							echo -n "to ${PEER:0:2} [failed]; "
@@ -539,29 +541,26 @@ chkpower () {
 	local exc=/usr/sbin/powerdaemon
 	local dir=/usr/scripts/powerdaemon/src
 
-	echo "check if config file exists"
-		echo -ne "locating power_mgmt.conf..."
+	echo "Check if config file exists"
+		echo -e "\tLocating power_mgmt.conf..."
 		if [ -f $config ]; then
-			echo -n "power management config file exists"
+			echo -ne "\t\tPower management config file exists"
 			echo_success
 			echo
 		else
 			echo -n "file not found!"
-			echo_failure
-			echo
-			return 1
 		fi
 
-	echo "check if executable file exists"
-		echo -ne "locating executable file..."
+	echo "Check if executable file exists"
+		echo -e "\tLocating executable file..."
 		if [ -f $exc ]; then
-			echo -n "power management config file exists"
+			echo -ne "\t\tPower management config file exists"
 			echo_success
-			echo -ne "check if file is executable..."
+			echo
+			echo -ne "\tCheck if file is executable..."
 			if [ -x $exc ]; then
 				echo -n "file is executable"
 				echo_success
-				echo
 				echo
 			else
 				echo -n "file not set to executable!"
@@ -576,10 +575,10 @@ chkpower () {
 			return 1
 		fi
 
-	echo "check if script directory exists"
-		echo -ne "locating directory..."
+	echo "Check if script directory exists"
+		echo -e "\tLocating directory..."
 		if [ -d $dir ]; then
-			echo -n "power management scripts directory exists"
+			echo -ne "\t\tPower management scripts directory exists"
 			echo_success
 			echo
 		else
@@ -589,12 +588,12 @@ chkpower () {
 			return 1
 		fi
 
-	echo "check chkconfig if power management is included"
+	echo "Check chkconfig if power management is included"
 		#skipped for now
 
-	echo "check if power management was autostarted"
+	echo -n "Check if power management was autostarted..."
 		local status=`service powerinit status`
-		if [[ $? -=eq 0 ]]; then
+		if [[ $? -eq 0 ]]; then
 			echo -ne "started"
 			echo_success
 			echo
@@ -610,7 +609,7 @@ chkpower () {
 # Function for checking BT Sync Components
 chkbt () {
 	#check config file
-
+	echo
 	#check for executable file
 
 
@@ -629,7 +628,7 @@ chkstartup () {
 	for srvc in ${start_on[@]}
 	do
 		echo -ne "\tCheck $srvc..."
-		srvcstart=`chkconfig --list $srvc | gawk '{ print $4 }'
+		srvcstart=`chkconfig --list $srvc | gawk '{ print $4 }'`
 		echo -n "$srvcstart"
 		if [ "$srvcstart" = "2:on" ]; then
 			echo_success
@@ -645,7 +644,7 @@ chkstartup () {
 	for srvc in ${start_off[@]}
 	do
 		echo -ne "\tCheck $srvc..."
-		srvcstart=`chkconfig --list $srvc | gawk '{ print $4 }'
+		srvcstart=`chkconfig --list $srvc | gawk '{ print $4 }'`
 		echo -n "$srvcstart"
 		if [ "$srvcstart" = "2:off" ]; then
 			echo_success
@@ -660,10 +659,140 @@ chkstartup () {
 	return 0
 }
 
+# Function that checks if users 'cloud' and 'sysad' have been created, if they have the 
+# correct groups, and if they have been configured as sudoers correctly
+#       cloud user will be used by the Cloud Team for remote management.
+#       sysad user will be used by non Cloud Team members for management
+#               and troubleshooting. Only a select set of commands are
+#               permitted for the sysad account
+chkusers () {
+        # Check if users exist
+        echo -n "Checking if cloud user exists..." | tee -a $LOG
+        id cloud >> $LOG
+        if [ $? -eq 1 ]; then
+                echo -n "no user 'cloud'!"
+                echo_failure
+                echo
+                return 1
+        else
+                echo -n "user cloud exists"
+                echo_success
+                echo
+                echo -n "Checking if sysad user exists..." | tee -a $LOG
+                id sysad >> $LOG
+                if [ $? -eq 1 ]; then
+                        echo -n "no user 'sysad'!"
+                        echo_failure
+                        echo
+                        return 1
+                else
+                        echo -n "user sysad exists"
+                        echo_success
+                        echo
+                fi
+        fi
+
+        # Access checks
+        # Check if 'cloud' and 'sysad' users are part of the 'libvirt' group; This required
+        # to allow the user to manage the VMs remotely via virt-manager
+        echo -n "Checking if cloud user is added to libvirt group..."
+        if [ -z "$(grep ^libvirt /etc/group | gawk '/cloud/')" ]; then
+                echo_failure
+                echo
+                return 1
+        else
+                echo_success
+                echo
+                echo -n "Checking if sysad user is added to libvirt group..."
+                if [ -z "$(grep ^libvirt /etc/group | gawk '/sysad/')" ]; then
+                        echo_failure
+                        echo
+                        return 1
+                else
+                        echo_success
+                        echo
+                fi
+        fi
+
+        # sudoers check: check the sudoers file if the required lines have
+        # been entered correctly
+
+        echo -n "Checking if Cmnd_Alias SYSADCMD is defined..." | tee -a $LOG
+        grep -F "Cmnd_Alias SYSADCMD = /bin/ls, /bin/cat, /bin/grep, /usr/bin/tail, /usr/bin/head, /usr/bin/top, /usr/bin/virsh, /bin/ping, /bin/netstat, /sbin/ifconfig, /sbin/poweroff, /sbin/shutdown, /sbin/service cman status, /sbin/service rgmanager status, /sbin/service clvmd status, /sbin/service libvirtd status, /sbin/service drbd status, /sbin/service gfs2 status, /home/sysad/check_services.sh, /sbin/service cman status, /usr/sbin/ccs_config_validate, /sbin/parted -s /dev/sda print free, /sbin/parted -s /dev/sdb print free" /etc/sudoers >> $LOG
+        if [ $? -eq 1 ]; then
+                echo_failure
+                echo
+                return 1
+        else
+                echo_success
+                echo
+        fi
+
+        echo -n "Checking if cloud user has correct sudo config..."
+        grep -F "cloud ALL=NOPASSWD: /sbin/poweroff, /sbin/reboot, /sbin/shutdown" /etc/sudoers >> $LOG
+        if [ $? -eq 1 ]; then
+                echo -n "missing/incorrect sudoers entry for cloud!"
+                echo_failure
+                echo
+                return 1
+        else
+                            grep -F "cloud ALL=(ALL) ALL" /etc/sudoers >> $LOG
+                if [ $? -eq 1 ]; then
+                        echo -n "missing/incorrect sudoers entry for cloud!"
+                        echo_failure
+                        echo
+                        return 1
+                else
+                        echo_success
+                        echo
+                fi
+        fi
+
+        echo -n "Checking if sysad user has correct sudo config..."
+        grep -F "sysad ALL=(ALL) SYSADCMD" /etc/sudoers >> $LOG
+        if [ $? -eq 1 ]; then
+                echo -n "missing/incorrect sudoers entry for sysad!"
+                echo_failure
+                echo
+                return 1
+        else
+                echo_success
+                echo
+        fi
+
+        return 0
+}
+
+# Checks if SNMP service is running and if the correct rocommunity has been configured
+checksnmp(){
+        echo "Checking if snmpd service is running and configured properly.. "
+        status=`service snmpd status`
+        if [[ $status = " * snmpd is running" ]]; then
+                echo -ne "\tsnmpd ..running!"
+                echo_success
+                rocommunity=$(cat /etc/snmp/snmpd.conf|grep -i "rocommunity cloudtopt3")
+                #rouser=$(cat /etc/snmp/snmpd.conf|grep -i "rouser snmpuser authpriv")
+                if [ "$rocommunity" = "rocommunity CLOUDTOPT3" ]; then
+                        echo -ne "\tsnmp ..configured properly!"
+                        echo_success
+                        echo
+                else
+                        echo -ne "\tsnmp ..not configured properly!"
+                        echo_failure
+                        echo
+                fi
+        else
+                echo -ne "\tsnmpd ..not running!"
+                echo -ne "\n\tPlease start snmpd service"
+                echo_failure
+                echo
+                return 1
+        fi
+}
+
 # Function to check the return value, and exit if it is not 0
 # This is used to check the return value of each function after it is run
 # If a check fails, the gatekeep script exits.
-
 error () {
 	if [ $1 -ne 0 ]; then
 		exit $1
@@ -769,29 +898,12 @@ chkvmxml
 error $?
 
 # Access checks
-# Check if 'cloud' user is part of the 'libvirt' group; This required
-# to allow the 'cloud' user to manage the VMs remotely via virt-manager
-echo -n "Checking if cloud user is added to libvirt group..."
-if [ -z "$(grep ^libvirt /etc/group | gawk '/cloud/')" ]; then
-	echo_failure
-	echo
-	exit 1
-else
-	echo_success
-	echo
-fi
+chkusers
+error $?
 
 # Check SNMP Service
-echo -n "Checking if SNMP is running..."
-service snmpd status
-if [ $? -eq 0 ]; then
-	echo_success
-	echo
-else
-	echo_failure
-	echo
-	exit 1
-fi
+chksnmp
+error $?
 
 # Check startup services
 chkstartup
@@ -802,6 +914,10 @@ testssh $PEER # Try to ssh to peer via hostname
 error $?
 
 testssh $( gethostip -d $PEER ) # Try to ssh to peer via IP address
+error $?
+
+# Check power management
+chkpower
 error $?
 
 # If all the tests are OK, the LOG file is deleted.
