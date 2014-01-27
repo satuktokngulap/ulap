@@ -88,7 +88,7 @@ EOF
 ldapadd -xvD "cn=config" -H ldaps:/// -w $TMPPWD -f modules.ldif
 
 cat > overlays.ldif << EOF
-dn: olcOverlay=ppolicy,olcDatabase={2}bdb.ldif,cn=config
+dn: olcOverlay=ppolicy,olcDatabase={2}bdb,cn=config
 olcOverlay: ppolicy
 objectClass: olcOverlayConfig
 objectClass: olcPPolicyConfig
@@ -126,4 +126,4 @@ o: $SCHID $SCHNAME
 ref: ldaps://ldap.$SCHID.cloudtop.ph/$DN
 EOF
 
-ldapadd -xvD "cn=config" -H ldaps:/// -w $TMPPWD -f overlays.ldif
+ldapadd -xvD "cn=admin,dc=cloudtop,dc=ph" -H ldaps:/// -w $TMPPWD -f referral.ldif

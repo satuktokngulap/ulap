@@ -77,12 +77,14 @@ echo "Updated hostname and /etc/hosts. To make changes permanent, rebooting must
 
 echo "Updating access control lists for LDAP for clients"
 
-sed -i "s/^.*olcAccess: {0}.*/olcAccess: {0}to dn.base="" attrs=namingContexts by * none/g" /etc/openldap/slapd.d/cn=config/olcDatabase={2}bdb.ldif
-sed -i "s/^.*olcAccess: {1}.*/olcAccess: {1}to * by dn=\"cn=replicator,$DN\" read by * none/g " /etc/openldap/slapd.d/cn=config/olcDatabase={2}bdb.ldif
-sed -i "s/^.*olcAccess: {2}.*/olcAccess: {2}to dn.one=\"uid=,ou=users,$DN\" by self read by * none/g" /etc/openldap/slapd.d/cn=config/olcDatabase={2}bdb.ldif
-sed -i "s/^.*olcAccess: {3}.*/olcAccess: {3}to dn.subtree=\"ou=users,$DN\" by dn.one=\"uid=dataadmin,ou=users,$DN\" write by * none/g" /etc/openldap/slapd.d/cn=config/olcDatabase={2}bdb.ldif
-sed -i "/^.*olcAccess: {3}.*/a olcAccess: {4}to attrs=userPassword,shadowLastChange by self read by anonymous auth by * none" /etc/openldap/slapd.d/cn=config/olcDatabase={2}bdb.ldif
-sed -i "/^.*olcAccess: {4}.*/a olcAccess: {5}to * by dn=\"cn=auth,dc=cloudtop,dc=ph\" read by self read by * none" /etc/openldap/slapd.d/cn=config/olcDatabase={2}bdb.ldif
+
+sed -i "/^structuralObjectClass: olcBdbConfig$/ -i \
+olcAccess: {0}to dn.base=\"\" attrs=namingContexts by * none \\
+olcAccess: {1}to * by dn=\"cn=replicator,$DN \\
+olcAccess: {2}to dn.one=\"uid=,ou=users,$DN \\
+olcAccess: {3}to dn.subtree=\"ou=users,$DN\" by dn.one=\"uid=dataadmin,ou=users,$DN\" write by * none \\
+olcAccess: {4}to attrs=userPassword,shadowLastChange by self read by anonymous auth by * none \\
+olcAccess: {5}to * by dn=\"cn=auth,dc=cloudtop,dc=ph\" read by self read by * none" /etc/openldap/slapd.d/cn=config/olcDatabase={2}bdb.ldif
 
 cat /etc/openldap/slapd.d/cn=config/olcDatabase={2}bdb.ldif | grep olcAccess
 echo "Updated access control lists for LDAP for clients"
