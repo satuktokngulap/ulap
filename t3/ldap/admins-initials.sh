@@ -72,7 +72,7 @@ memberUid: ctel
 dn: cn=cloud,ou=groups,$BASEDN
 objectClass: posixGroup
 cn: cloud
-gidNumber: 1000
+gidNumber: 1001
 memberUid: kenan
 memberUid: belay
 memberUid: gene
@@ -159,20 +159,6 @@ ldapadd -H ldaps:/// -xD "cn=admin,$BASEDN" -f ctel.ldif -w $PASSWD
 
 ## insert cloud team account creation here
 cat > cloud.ldif << EOF
-dn: uid=kenan,ou=sysads,dc=cloudtop,dc=ph
-objectClass: inetOrgPerson
-objectClass: posixAccount
-objectClass: shadowAccount
-uid: kenan
-sn: virtucio
-cn: kenan virtucio
-uidNumber: 1000
-loginShell: /bin/bash
-homeDirectory: /home/kenan
-gidNumber: 1000
-userPassword: $HPASSWD
-employeeType: sysad
-
 dn: uid=belay,ou=sysads,dc=cloudtop,dc=ph
 objectClass: inetOrgPerson
 objectClass: posixAccount
@@ -183,21 +169,7 @@ cn: belay montes
 uidNumber: 1001
 loginShell: /bin/bash
 homeDirectory: /home/belay
-gidNumber: 1000
-userPassword: $HPASSWD
-employeeType: sysad
-
-dn: uid=gene,ou=sysads,dc=cloudtop,dc=ph
-objectClass: inetOrgPerson
-objectClass: posixAccount
-objectClass: shadowAccount
-uid: gene
-sn: quevedo
-cn: gene quevedo
-uidNumber: 1002
-loginShell: /bin/bash
-homeDirectory: /home/gene
-gidNumber: 1000
+gidNumber: 1001
 userPassword: $HPASSWD
 employeeType: sysad
 
@@ -208,38 +180,24 @@ objectClass: shadowAccount
 uid: carlo
 sn: santos
 cn: carlo santos
-uidNumber: 1003
+uidNumber: 1002
 loginShell: /bin/bash
 homeDirectory: /home/carlo
-gidNumber: 1000
+gidNumber: 1001
 userPassword: $HPASSWD
 employeeType: sysad
 
-dn: uid=ken,ou=sysads,dc=cloudtop,dc=ph
+dn: uid=gene,ou=sysads,dc=cloudtop,dc=ph
 objectClass: inetOrgPerson
 objectClass: posixAccount
 objectClass: shadowAccount
-uid: ken
-sn: salanio
-cn: ken salanio
-uidNumber: 1004
+uid: gene
+sn: quevedo
+cn: gene quevedo
+uidNumber: 1003
 loginShell: /bin/bash
-homeDirectory: /home/ken
-gidNumber: 1000
-userPassword: $HPASSWD
-employeeType: sysad
-
-dn: uid=lope,ou=sysads,dc=cloudtop,dc=ph
-objectClass: inetOrgPerson
-objectClass: posixAccount
-objectClass: shadowAccount
-uid: lope
-sn: beltran
-cn: lope beltran
-uidNumber: 1005
-loginShell: /bin/bash
-homeDirectory: /home/lope
-gidNumber: 1000
+homeDirectory: /home/gene
+gidNumber: 1001
 userPassword: $HPASSWD
 employeeType: sysad
 
@@ -250,10 +208,52 @@ objectClass: shadowAccount
 uid: gerry
 sn: roxas
 cn: gerry roxas
-uidNumber: 1006
+uidNumber: 1004
 loginShell: /bin/bash
 homeDirectory: /home/gerry
-gidNumber: 1000
+gidNumber: 1001
+userPassword: $HPASSWD
+employeeType: sysad
+
+dn: uid=ken,ou=sysads,dc=cloudtop,dc=ph
+objectClass: inetOrgPerson
+objectClass: posixAccount
+objectClass: shadowAccount
+uid: ken
+sn: salanio
+cn: ken salanio
+uidNumber: 1005
+loginShell: /bin/bash
+homeDirectory: /home/ken
+gidNumber: 1001
+userPassword: $HPASSWD
+employeeType: sysad
+
+dn: uid=kenan,ou=sysads,dc=cloudtop,dc=ph
+objectClass: inetOrgPerson
+objectClass: posixAccount
+objectClass: shadowAccount
+uid: kenan
+sn: virtucio
+cn: kenan virtucio
+uidNumber: 1006
+loginShell: /bin/bash
+homeDirectory: /home/kenan
+gidNumber: 1001
+userPassword: $HPASSWD
+employeeType: sysad
+
+dn: uid=lope,ou=sysads,dc=cloudtop,dc=ph
+objectClass: inetOrgPerson
+objectClass: posixAccount
+objectClass: shadowAccount
+uid: lope
+sn: beltran
+cn: lope beltran
+uidNumber: 1007
+loginShell: /bin/bash
+homeDirectory: /home/lope
+gidNumber: 1001
 userPassword: $HPASSWD
 employeeType: sysad
 EOF

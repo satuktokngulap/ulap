@@ -45,7 +45,7 @@ objectClass: organization
 o: $SCHID $SCHNAME
 st: $SCHMUN
 l: $SCHREG
-decription: SchDivName=$6,SchDivDist=$7,ProvID=$8
+description: SchDivName=$6,SchDivDist=$7,ProvID=$8
 EOF
 
 ldapadd -H ldaps:/// -xD "cn=admin,$DN" -f root.ldif -w $TMPPWD
