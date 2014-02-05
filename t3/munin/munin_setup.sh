@@ -20,12 +20,17 @@
 #        *upd ports, restricted to local subnet:
 #          - 161:162 (snmp)
 #
+#    3. SNMP is installed on all VMs and 
+#       baremetal nodes, with configured 
+#       'CLOUDTOPT3' as read-only community
+#
 ###################################################
 
 LOG_TO_MESSAGES=""
 SNMP_V3_PWD="muninpasswd"
 HOSTNAME=$(hostname)
-MGMT_IP_ADDR=$(ifconfig eth0 | grep 'inet addr' | cut -d':' -f2 | cut -d' ' -f1)
+MGMT_IP_ADDR=$(ifconfig br0 | grep 'inet addr' | cut -d':' -f2 | cut -d' ' -f1)
+[[ -z $MGMT_IP_ADDR ]] && $(ifconfig eth0 | grep 'inet addr' | cut -d':' -f2 | cut -d' ' -f1) || die "Cannot find IP address in interfaces 'br0' or 'eth0'"
 
 function log_info(){
     [[ $LOG_TO_MESSAGES ]] && logger >&2 "[MUNIN_SETUP] $@" || echo >&2 "[MUNIN_SETUP] $@"
@@ -63,9 +68,10 @@ function create_munin_snmp_plugins(){
 [[ $EUID -ne 0 ]] && die "Munin setup script must be run as root" 1>&2
 
 #Create temporary folder
-log_info "Creating tmp dir"
+#log_info "Creating tmp dir"
 #mkdir tmp
 #cd ./tmp
+#Install epel repo
 yum install -y wget
 #Setup epel repo
 log_info "Setting epel repo..."
@@ -93,7 +99,7 @@ service snmpd start
 #>>Install and setup Munin
 log_info "Installing Munin..."
 yum install -y telnet nginx httpd-tools munin munin-node
-mkdir /usr/share/nginx/logs
+[[ -d "/usr/share/nginx/logs" ]] || mkdir /usr/share/nginx/logs
 #create htpasswd file
 touch /var/www/html/munin/.htpasswd
  
@@ -133,23 +139,23 @@ chkconfig --levels 235 munin-node on
 
 SCRIPT_DIR=$(get_script_dir)
 #Node A
-if [[ $(echo $MGMT_IP_ADDR | cut -d'.' -f4) -eq 11 ]]; then
+if [[ $(hostname | grep "sa") ]]; then
 cp "$SCRIPT_DIR/utils/sa.munin.conf" /etc/munin/munin.conf
 create_munin_snmp_plugins "sa.local"
 create_munin_snmp_plugins "ldap.local"
 create_munin_snmp_plugins "rdpa.local"
 #Node B
-elif [[ $(echo $MGMT_IP_ADDR | cut -d'.' -f4) -eq 12 ]]; then
+elif [[ $(hostname | grep "sb") ]]; then
 cp "$SCRIPT_DIR/utils/sb.munin.conf" /etc/munin/munin.conf
 create_munin_snmp_plugins "sb.local"
 create_munin_snmp_plugins "lms.local"
 create_munin_snmp_plugins "rdpb.local"
 else
-die "Management IP Address on eth0 interface does not match .11 or .12!"
+die "Hostname does not identify if node is 'sa' or 'sb'!"
 fi
 
 #Selinux policies
-yum install -y policycoreutils-python
+#yum install -y policycoreutils-python
 
 #Start/restart services
 [ $(ps aux | grep -c 'munin-node') -gt 1 ] && service munin-node restart || service munin-node start
