@@ -7,7 +7,6 @@
 # This script does the following:
 # - Enable SELINUX
 # - Update the host name
-# - Update access control lists 
 # - Update LDAP Root DNs
 # - Update LDAP Root Passwords
 # - Update LDAP Suffix
@@ -60,7 +59,7 @@ sed -i "s/HOSTNAME=.*/HOSTNAME=$TMPHNAME/g" /etc/sysconfig/network
 
 cat /etc/sysconfig/network
 
-service network restart
+#service network restart
 
 if [ -z "$HOSTENT" ] 
 then
@@ -77,18 +76,6 @@ echo "Updated hostname and /etc/hosts. To make changes permanent, rebooting must
 
 echo "Updating access control lists for LDAP for clients"
 
-
-sed -i "/^structuralObjectClass: olcBdbConfig$/ -i \
-olcAccess: {0}to dn.base=\"\" attrs=namingContexts by * none \\
-olcAccess: {1}to * by dn=\"cn=replicator,$DN \\
-olcAccess: {2}to dn.one=\"uid=,ou=users,$DN \\
-olcAccess: {3}to dn.subtree=\"ou=users,$DN\" by dn.one=\"uid=dataadmin,ou=users,$DN\" write by * none \\
-olcAccess: {4}to attrs=userPassword,shadowLastChange by self read by anonymous auth by * none \\
-olcAccess: {5}to * by dn=\"cn=auth,dc=cloudtop,dc=ph\" read by self read by * none" /etc/openldap/slapd.d/cn=config/olcDatabase={2}bdb.ldif
-
-cat /etc/openldap/slapd.d/cn=config/olcDatabase={2}bdb.ldif | grep olcAccess
-echo "Updated access control lists for LDAP for clients"
-
 echo "Updating Base DN, root DN, and passwords"
 
 sed -i "s/olcRootDN: .*/olcRootDN: cn=admin,$DN/g" /etc/openldap/slapd.d/cn=config/olcDatabase={2}bdb.ldif
@@ -97,9 +84,9 @@ sed -i "s/olcSuffix: .*/olcSuffix: $DN/g" /etc/openldap/slapd.d/cn=config/olcDat
 HPWD=$(slappasswd -s $TMPPWD)
 
 echo $HPWD
-sed -i "/olcRootDN.*/a olcRootPW: $HPWD" /etc/openldap/slapd.d/cn=config/olcDatabase={0}config.ldif
-sed -i "/olcRootDN.*/a olcRootPW: $HPWD" /etc/openldap/slapd.d/cn=config/olcDatabase={2}bdb.ldif
-sed -i "/olcRootDN.*/a olcRootPW: $HPWD" /etc/openldap/slapd.d/cn=config/olcDatabase={3}bdb.ldif
+sed -i "/olcRootDN.*$/a olcRootPW: $HPWD" /etc/openldap/slapd.d/cn=config/olcDatabase={0}config.ldif
+sed -i "/olcRootDN.*$/a olcRootPW: $HPWD" /etc/openldap/slapd.d/cn=config/olcDatabase={2}bdb.ldif
+sed -i "/olcRootDN.*$/a olcRootPW: $HPWD" /etc/openldap/slapd.d/cn=config/olcDatabase={3}bdb.ldif
 
 cat /etc/openldap/slapd.d/cn=config/olcDatabase={0}config.ldif | grep olcRootPW
 cat /etc/openldap/slapd.d/cn=config/olcDatabase={2}bdb.ldif | grep olcRootPW
