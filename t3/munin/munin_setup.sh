@@ -8,7 +8,7 @@
 #
 # Prereqs: 
 #    1. /etc/hosts already setup with 
-#       hostnames for local vms
+#       hostnames for local vms and baremetal
 #
 #    2. open the following ports 
 #
@@ -23,7 +23,7 @@
 ###################################################
 
 LOG_TO_MESSAGES=""
-SNMP_V3_PWD="cedricthegreat"
+SNMP_V3_PWD="muninpasswd"
 HOSTNAME=$(hostname)
 MGMT_IP_ADDR=$(ifconfig eth0 | grep 'inet addr' | cut -d':' -f2 | cut -d' ' -f1)
 
@@ -50,15 +50,23 @@ function get_script_dir(){
   echo "$( cd -P "$( dirname "$SOURCE" )" && pwd )"
 }
 
-[[ $EUID -ne 0 ]] && die "Munin setup script must be run as root" 1>&2
+function create_munin_snmp_plugins(){
+  echo -ne "Creating SNMP plugins for $1... "
+  declare -a SYMLINKS=$(munin-node-configure --shell --snmp $1 --snmpversion 2c --snmpcommunity CLOUDTOPT3)
 
-die $(get_script_dir)
+  while read -r LINE; do
+	eval $LINE
+  done <<< "$SYMLINKS"
+  echo "Done!"
+}
+
+[[ $EUID -ne 0 ]] && die "Munin setup script must be run as root" 1>&2
 
 #Create temporary folder
 log_info "Creating tmp dir"
-mkdir tmp
-cd ./tmp
-
+#mkdir tmp
+#cd ./tmp
+yum install -y wget
 #Setup epel repo
 log_info "Setting epel repo..."
 if [[ $(ls /etc/yum.repos.d/ | grep epel) ]]
@@ -71,45 +79,78 @@ fi
 
 #>>Install and setup SNMP
 log_info "Installing SNMP..."
-yum install net-snmp net-snmp-utils net-snmp-libs
+yum install -y net-snmp net-snmp-utils net-snmp-libs
 cp /etc/snmp/snmpd.conf /etc/snmp/snmpd.conf.bak
 #configure snmp V3 adn V2
 net-snmp-create-v3-user -ro -A ${SNMP_V3_PWD} -X ${SNMP_V3_PWD} snmpuser
-echo “rocommunity CLOUDTOPT3” > /etc/snmp/snmpd.conf
-echo “rouser snmpuser authpriv” >> /etc/snmp/snmpd.conf
+echo "rocommunity CLOUDTOPT3" > /etc/snmp/snmpd.conf
+echo "rouser snmpuser authpriv" >> /etc/snmp/snmpd.conf
 #Replace SNMP logging opts to prevent flooding logs
 sed -i "s/-LS0-6d -Lf/-LS0-4d -Lf/g" /etc/init.d/snmpd
+chkconfig --levels 235 snmpd on
+service snmpd start
 
 #>>Install and setup Munin
 log_info "Installing Munin..."
-yum install telnet nginx httpd-tools munin munin-node
+yum install -y telnet nginx httpd-tools munin munin-node
 mkdir /usr/share/nginx/logs
-#create htpasswd file and create <muninuser>
+#create htpasswd file
 touch /var/www/html/munin/.htpasswd
-log_info "Enter password for muninuser:"
-htpasswd -c /var/www/html/munin/.htpasswd muninuser   #TODO:Need expect to automatically enter password
+ 
+# NOTE:Skipping this part
+# Create munin website user and password via expect
+#~ log_info "Configure password for muninuser..."
+#~ yum install -y expect
+#~ expect -c "
+#~ spawn htpasswd -c /var/www/html/munin/.htpasswd muninuser
+#~ expect {
+    #~ -re { password: $} {
+        #~ send \"$SNMP_V3_PWD\r\"
+        #~ exp_continue
+    #~ }
+#~ }
+#~ "
 
 #>>Nginx config
 log_info "Configuring nginx..."
 chown -R munin:munin /var/www/html/munin
 cp "$(get_script_dir)/utils/munin-site.conf" /etc/nginx/conf.d/munin-site.conf
-sed -i "s/<NETWORK_IP>/$(echo $MGMT_IP_ADDR | cut -d'.' -f1-3)\./g" /etc/nginx/conf.d/munin-site.conf
+sed -i "s/<NETWORK_IP>/$(echo $MGMT_IP_ADDR | cut -d'.' -f1-3)\.0/g" /etc/nginx/conf.d/munin-site.conf
 chkconfig nginx --levels 235 on
 
 #>>Munin config
 log_info "Configuring munin..."
-#select appropriate munin config template
-MUNIN_CONFIG=$(get_script_dir)
-[[ $(echo $MGMT_IP_ADDR | cut -d'.' -f4) -eq 11 ]] && MUNIN_CONFIG="$MUNIN_CONFIG/utils/sa.munin.conf" || MUNIN_CONFIG="$MUNIN_CONFIG/utils/sb.munin.conf"
-cp $MUNIN_CONFIG /etc/munin/munin.conf
-chkconfig --levels 235 munin-node on
 #configure snmp communities for munin
 touch /etc/munin/plugin-conf.d/snmp_communities
 cat >/etc/munin/plugin-conf.d/snmp_communities <<EOL
 [snmp_*]
 env.community CLOUDTOPT3
 EOL
+chkconfig --levels 235 munin-node on
 
-#Restart services
-service munin-node restart
-service nginx restart
+#Node specific config
+#select appropriate munin config template
+
+SCRIPT_DIR=$(get_script_dir)
+#Node A
+if [[ $(echo $MGMT_IP_ADDR | cut -d'.' -f4) -eq 11 ]]; then
+cp "$SCRIPT_DIR/utils/sa.munin.conf" /etc/munin/munin.conf
+create_munin_snmp_plugins "sa.local"
+create_munin_snmp_plugins "ldap.local"
+create_munin_snmp_plugins "rdpa.local"
+#Node B
+elif [[ $(echo $MGMT_IP_ADDR | cut -d'.' -f4) -eq 12 ]]; then
+cp "$SCRIPT_DIR/utils/sb.munin.conf" /etc/munin/munin.conf
+create_munin_snmp_plugins "sb.local"
+create_munin_snmp_plugins "lms.local"
+create_munin_snmp_plugins "rdpb.local"
+else
+die "Management IP Address on eth0 interface does not match .11 or .12!"
+fi
+
+#Selinux policies
+yum install -y policycoreutils-python
+
+#Start/restart services
+[ $(ps aux | grep -c 'munin-node') -gt 1 ] && service munin-node restart || service munin-node start
+[ $(ps aux | grep -c 'nginx') -gt 1 ] && service nginx restart || service nginx start
