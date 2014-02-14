@@ -11,8 +11,7 @@ fi
 $DRBDADM create-md r{0..1}
 modprobe drbd
 
-$DRBDADM attach r{0..1}
-$DRBDADM connect r{0..1}
+$DRBDADM up r{0..1}
 sleep 5
 
 # Clear bitmap on node sa
