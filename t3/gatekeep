@@ -642,7 +642,7 @@ chkbt () {
 # at startup. Uses `chkconfig --list` to check.
 chkstartup () {
 	# Services that should be on at startup
-	start_on=( cman rgmanager iptables )
+	start_on=( cman rgmanager iptables modclusterd ricci nfs )
 
 	# Services that should be off at startup
 	start_off=( clvmd libvirtd drbd )
