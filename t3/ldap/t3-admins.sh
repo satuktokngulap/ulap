@@ -6,7 +6,7 @@ PASSWD=$2
 HPASSWD=$(slappasswd -s $PASSWD)
 
 cat > schooladmins.ldif << EOF
-dn: uid=sysad,ou=users,$BASEDN
+dn: uid=sysad,$BASEDN
 objectClass: inetOrgPerson
 objectClass: posixAccount
 objectClass: shadowAccount
@@ -20,7 +20,7 @@ gidNumber: 5000
 userPassword: $HPASSWD
 employeeType: sysad
 
-dn: cn=dataadmin,ou=users,$BASEDN
+dn: cn=dataadmin,$BASEDN
 objectClass: organizationalRole
 objectClass: simpleSecurityObject
 cn: dataadmin

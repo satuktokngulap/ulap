@@ -6,21 +6,16 @@
 # This script is the second part of setting-up an LDAP server for Tier 3 
 # after a reboot by the first script (t3-server.sh)
 # This script does the following:
-# - Creates/replaces the SSL certificate of the LDAP server
-# - Updates rsyslog to include slapd logging
-# - Updates hosts.allow to allow all for slapd
-# - Checks configuration via slaptest and enables slapd
-# - Adds password policy and replication modules
-# - Adds password policy configuration to LDAP
-# - Creates a referral object that points from LDAP B (sysads) to LDAP A (clients) 
+# - configures rsyslog logging if not yet already done
+# - (re)creates a self-signed certificate for the LDAP server
+# - adds the password policy and synchronization modules
+# - adds the root and other initial entries for the client and sysad backends
 
 SCHID=$1
 SCHNAME=$2
 SCHMUN=$3
 SCHREG=$4
 TMPPWD=$5
-
-#set -e
 
 if [ $# -ne 5 ];
 	then
@@ -54,27 +49,22 @@ echo "Created temporary self-signed certificate"
 
 echo "Fix logging"
 
-if [ -z $(cat /etc/rsyslog.conf | grep slapd.log) ]
-	then
-	
-	cat >> /etc/rsyslog.conf << EOF
-	local4.* 					/var/log/slapd/slapd.log		
-	EOF
-	
+if [[ -z $(cat /etc/rsyslog.conf | grep slapd.log) ]]; then
+	echo "local4.* 		/var/log/slapd/slapd.log" >> /etc/rsyslog.conf
 	service rsyslog restart
-fi
+fi	
 
 
 echo "Starting SLAPD"
+if [[ -z $(cat /etc/hosts.allow | grep slapd:ALL ) ]]; then 
 cat > /etc/hosts.allow << EOF
 slapd:ALL
 EOF
+fi
 
 slaptest -uv
-service slapd start
+service slapd restart
 chkconfig slapd on
-
-echo "Adding the password policy and replication modules"
 
 cat > modules.ldif << EOF
 dn: cn=module,cn=config
@@ -85,6 +75,7 @@ olcModuleLoad: syncprov.la
 olcModuleLoad: ppolicy.la
 EOF
 
+echo "Adding modules for password policy and replication"
 ldapadd -xvD "cn=config" -H ldaps:/// -w $TMPPWD -f modules.ldif
 
 cat > overlays.ldif << EOF
@@ -107,9 +98,79 @@ olcPPolicyDefault: cn=default,$DN
 #olcMirrorMode: TRUE
 EOF
 
+echo "Creating password policy settings"
 ldapadd -xvD "cn=config" -H ldaps:/// -w $TMPPWD -f overlays.ldif
 
+cat > clientroot.ldif << EOF
+dn: $DN
+objectClass: organization
+o: $SCHID $SCHNAME
+st: $SCHMUN
+l: $SCHREG
+
+dn: cn=auth,$DN
+objectClass: simpleSecurityObject
+objectClass: organizationalRole
+cn: auth
+description: Account for auth
+userPassword: 
+EOF
+
+echo "Adding root DSE for LDAP"
+ldapadd -xvD "cn=admin,$DN" -H ldaps:/// -w $TMPPWD -f clientroot.ldif
+
+cat > olcAccess1.ldif << EOF
+dn: olcDatabase={2}bdb,cn=config
+changetype: modify
+add: olcAccess
+olcAccess: {0}to * by dn="cn=admin,dc=cloudtop,dc=ph" write by dn="cn=replicator,$DN" read
+olcAccess: {1}to dn.children="ou=users,$DN" by dn.one="uid=dataadmin,ou=users,$DN" write by * none
+olcAccess: {2}to attrs=userPassword,shadowLastChange by self read by anonymous auth by * none
+olcAccess: {3}to * by dn="cn=auth,$DN" read by self read by * none
+EOF
+
+echo "Adding OLC access for replication and and referrals"
+ldapmodify -xvD "cn=config" -H ldaps:/// -w $TMPPWD -f olcAccess1.ldif
+
+cat > ppolicy.ldif <<EOF
+dn: ou=pwpolicies,$DN
+objectClass: organizationalUnit
+objectClass: top
+ou: policies
+
+dn: cn=default,ou=pwpolicies,$DN
+cn: default
+objectClass: pwdPolicy
+objectClass: person
+objectClass: top
+pwdAllowUserChange: TRUE
+pwdAttribute: 2.5.4.35
+pwdExpireWarning: 2592000
+pwdFailureCountInterval: 30
+pwdGraceAuthNLimit: 0
+pwdInHistory: 10
+pwdLockout: TRUE
+pwdLockoutDuration: 3600
+pwdMaxAge: 31536000
+pwdMaxFailure: 5
+pwdMinAge: 3600
+pwdMinLength: 6
+pwdMustChange: FALSE
+pwdSafeModify: FALSE
+sn: dummy value
+EOF
+
+
+echo "Adding password policy for clients"
+ldapadd -xvD "cn=admin,$DN" -H ldaps:/// -w $TMPPWD -f olcAccess1.ldif
+
 cat > referral.ldif << EOF
+dn: dc=cloudtop,dc=ph
+objectClass: organization
+objectClass: dcObject
+dc: cloudtop
+o: cloudtop
+
 dn: l=$SCHREG,dc=cloudtop,dc=ph
 objectClass: locality
 l: $SCHREG
