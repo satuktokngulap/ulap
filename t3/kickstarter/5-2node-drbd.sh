@@ -23,3 +23,6 @@ MYNAME="`uname -n`"
 if [ "$(echo $MYNAME | gawk -F'.' '{print $1}')" = "sa" ]; then
 	$DRBDADM -- --clear-bitmap new-current-uuid r{0..1}
 fi
+
+echo "Restarting drbd..."
+service drbd restart
