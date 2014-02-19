@@ -9,7 +9,7 @@ if [ $? -ne 0 ]; then
 fi
 
 $DRBDADM create-md r{0..1}
-modproeb drbd
+modprobe drbd
 $DRBDADM up r{0..1}
 echo "Waiting for resources to connect..."
 $DRBDADM wait-connect r{0..1}
