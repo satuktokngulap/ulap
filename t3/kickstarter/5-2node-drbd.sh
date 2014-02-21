@@ -1,5 +1,7 @@
 #!/bin/bash
 
+service iptables stop
+
 DRBDADM="/sbin/drbdadm"
 
 $DRBDADM dump
