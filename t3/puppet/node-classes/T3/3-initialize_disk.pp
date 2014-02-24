@@ -33,11 +33,12 @@ class t3-base-initialize_disk {
         mode => 0740,
         source => "puppet:///modules/ct-files/t3-scripts/initialize_disk.sh"
     }
-    exec {"initialize_disk.sh":
+   # exec {"initialize_disk.sh":
 
-        command => "/root/scripts/puppet/initialize_disk.sh",
-        require => File['/root/scripts/initialize_disk.sh'],
-        cwd => '/root/scripts',
-    }
-    File['/root/scripts'] -> File['/root/scripts/puppet'] -> File['/root/scripts/initialize_disk.sh'] -> Exec['initialize_disk.sh']
+    #    command => "/root/scripts/puppet/initialize_disk.sh",
+    #    require => File['/root/scripts/initialize_disk.sh'],
+    #    cwd => '/root/scripts',
+    #    creates => '/root/scripts/puppet/devsdb1.ddlog',   
+    #}
+    File['/root/scripts'] -> File['/root/scripts/puppet'] -> File['/root/scripts/puppet/initialize_disk.sh']
 }

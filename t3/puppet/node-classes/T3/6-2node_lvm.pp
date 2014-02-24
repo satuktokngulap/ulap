@@ -58,7 +58,8 @@ class t3-base-lvm {
     exec {"2node-lvm.sh":
 
         command => "/root/scripts/2node-lvm.sh",
-        require => File['/root/scripts/2node-lvm.sh']
+        require => File['/root/scripts/2node-lvm.sh'],
+        logoutput => true,
     }
     File['/root/scripts/2node-lvm.sh'] -> Exec['2node-lvm.sh']
 

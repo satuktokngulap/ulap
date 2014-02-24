@@ -1,12 +1,13 @@
-node 'cloudtop-t3-base'
+class cloudtop-t3-base
 {
     # Add Admin Users
     user { 'cloud':
       # email => "gerryroxas@outlook.com",
+      require => Group['libvirt'],
       ensure => present,
       uid => 500,
-      gid => 500,
-      groups => [502]
+      #gid => 500,
+      groups => 'libvirt'
     }
     # add_ssh_key { cloudtopadmin:
     #    key => "AAAAB3NzaC1yc2EAAAADAQABAAABAQDm4C93rBH3XDU/EVytthzc9RMjAFrjORF2b+nUmcND1JnV93FwGNpBCLz9g93B35KObhWbNccLrB34iqYt/Hf4hd4nM1vc/hCxKaMYON9ZHAsiSpUp/Ss0t2mvVddbJ7GdWjmUvS+ADmA2PMWpsxvlcCcRvG0RfLPHJ+BCbEwlGX4eHBzokZE8zakDuiwacnOid8rbMtrBerveOzEBwvoX9gbqO8+Pt7y8c6e/ZZcBWlIuOHPRVsw+hfdm5pgIegYQ0T4iTUwawTAsklcE72nob6PfZQSGlhcNzaLASS6Zg7n3lSF3qHkLDpCiZbEjNglcItVyqVrx2DdrObTIPDgt",
@@ -14,17 +15,18 @@ node 'cloudtop-t3-base'
     # }
     
     user { 'sysad':
+      require => Group['libvirt'],
       ensure => present,
       uid => 501,
-      gid => 501,
-      groups => [502] 
+      #gid => 501,
+      groups => 'libvirt'
     }
 
     group { 'libvirt':
        ensure => present,
        gid => 502,
     }
-
+    Group['libvirt'] -> User['cloud'] -> User['sysad']
     # Add to sudo
     class { 'sudo': }
     sudo::conf { 'cloud':
@@ -82,26 +84,26 @@ node 'cloudtop-t3-base'
     
     # RSYSLOG
     class {'rsyslog':
-        firewall => true,
-        firewall_tool => 'iptables',
-        firewall_src => '10.225.1.200',
+#        firewall => true,
+#        firewall_tool => 'iptables',
+#        firewall_src => '10.225.1.200',
     }
 
     # SSH
 
     # IPTABLES
-    iptables::rule {
-    'ssh-gw':
-        port => '22',
-        protocol => 'tcp',
-        source => '10.225.1.202',
-    }
-    iptables::rule {
-        'snmp':
-            port => '161',
-            protocol => 'udp',
-            source => '10.225.1.201',
-    }
+#    iptables::rule {
+#    'ssh-gw':
+#        port => '22',
+#        protocol => 'tcp',
+#        source => '10.225.1.202',
+#    }
+#    iptables::rule {
+#        'snmp':
+#            port => '161',
+#            protocol => 'udp',
+#            source => '10.225.1.201',
+#    }
 
     # TURN OFF UNNECESSARY SERVICES
     service { 'netfs':
@@ -111,6 +113,9 @@ node 'cloudtop-t3-base'
         ensure => stopped,
     }
     service { 'rpcbind':
+        ensure => stopped,
+    }
+    service {'iptables':
         ensure => stopped,
     }
 }
