@@ -31,7 +31,10 @@ class t3-base-drbd {
     exec {"2node-drbd.sh":
 
         command => "/root/scripts/2node-drbd.sh",
-        require => File['/root/scripts/2node-drbd.sh']
+        require => File['/root/scripts/2node-drbd.sh'],
+        logoutput => true,
+        timeout => 3000,
+
     }
     File['/root/scripts'] -> File['/root/scripts/2node-drbd.sh'] -> Exec['2node-drbd.sh']
 }

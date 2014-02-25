@@ -26,6 +26,9 @@
 #Allow HTTPS
 -A INPUT -m state --state NEW -m tcp -p tcp --dport 443 -j ACCEPT
 
+#Allow nginx+munin
+-A INPUT -m state --state NEW -m tcp -p tcp --dport 8000 -j ACCEPT
+
 #Accept any established connections
 -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
 
@@ -33,7 +36,9 @@
 -A INPUT -m state --state NEW -m tcp -p tcp --dport 22 -j ACCEPT
 
 ##Allow SNMP traffic
--A INPUT -m udp -p udp -s 10.225.1.201 --dport 161 -j ACCEPT
+-A INPUT -m udp -p udp -s 10.225.1.201 --dport 161:162 -j ACCEPT
+-A INPUT -m udp -p udp -s IP_ADDRESS --dport 161:162 -j ACCEPT
+-A INPUT -m udp -p udp -s PEER_NODE_IP --dport 161:162 -j ACCEPT
 
 ##Allow Rsyslog traffic
 -A INPUT -m tcp -p tcp -d 10.225.1.200 --dport 514 -j ACCEPT
@@ -63,8 +68,7 @@
 -A OUTPUT -p tcp -m tcp -s PEER_NODE_IP --dport 7788:7789 -j ACCEPT
 
 #Allow CMAN
--A INPUT -m state --state NEW -p udp -s PEER_NODE_IP --dport 5404 -j ACCEPT
--A INPUT -m state --state NEW -p udp -s PEER_NODE_IP --dport 5405 -j ACCEPT
+-A INPUT -m state --state NEW -p udp -s PEER_NODE_IP --dport 5404:5405 -j ACCEPT
 
 #Allow RGManager
 -A INPUT -m state --state NEW -p tcp -s PEER_NODE_IP --dport 49152:49215 -j ACCEPT
@@ -83,7 +87,3 @@
 -A INPUT -j LOG
 -A INPUT -j DROP
 COMMIT
-
-
-#Source: https://access.redhat.com/site/documentation/en-US/Red_Hat_Enterprise_Linux/5/html/Cluster_Administration/s1-iptables-CA.html
-#http://snarvaez.com.ar/libertad/index.php/2012/11/05/install-drbd-distributed-replicated-block-device-on-centos-6-3
