@@ -9,8 +9,9 @@ fi
 
 set -e
 
+SCHEMA=$(locate schema.OpenLDAP | grep sudo)
 
-cp -f /usr/share/doc/sudo-<version_number>/schema.OpenLDAP /etc/openldap/schema/sudo.schema
+cp -f $SCHEMA /etc/openldap/schema/sudo.schema
 restorecon /etc/openldap/schema/sudo.schema
 
 mkdir ~/sudoWork
@@ -33,6 +34,7 @@ olcDbIndex: sudoHost	eq
 EOF
 
 ldapadd -H ldaps:/// -x -D "cn=config" -w $TMPPWD -f sudoindexes.ldif -v
+
 
 
 
