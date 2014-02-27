@@ -305,17 +305,17 @@ pingtest() {
 chkinternet() {
 	echo -ne "Checking internet connection.. "
 	echo
-	internet=`ping -c 4 google.com | grep 'received' | awk -F',' '{ print $2}' | awk '{ print $1}'` 
-	if [ $internet -gt 0 ]; then
-		echo -ne "\tInternet connection ..available!"
-		echo_success
-		echo
-	else
-		echo -ne "\tInternet connection ..not available!"
-		echo_failure
-		echo
-	fi
-	return 0
+	internet=`ping -c 4 8.8.8.8 | grep 'received' | awk -F',' '{ print $2}' | awk '{ print $1}'`
+        if [ $internet -gt 0 ]; then
+                echo -ne "\tInternet connection ..available!"
+                echo_success
+                echo
+        else
+                echo -ne "\tInternet connection ..not available!"
+                echo_failure
+                echo
+        fi
+        return 0
 }
 
 # Function to check if hostname follows our naming convention pattern:
@@ -642,10 +642,10 @@ chkbt () {
 # at startup. Uses `chkconfig --list` to check.
 chkstartup () {
 	# Services that should be on at startup
-	start_on=( cman rgmanager iptables modclusterd ricci nfs )
+	start_on=( cman rgmanager iptables modclusterd ricci nfs snmpd sshd nginx rsyslog)
 
 	# Services that should be off at startup
-	start_off=( clvmd libvirtd drbd )
+	start_off=( clvmd libvirtd drbd gfs2 )
 	
 	echo "Check startup services:"
 	for srvc in ${start_on[@]}
