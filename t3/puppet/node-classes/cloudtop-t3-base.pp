@@ -69,8 +69,8 @@ class cloudtop-t3-base
         $snmpcommunity = "CLOUDTOPT2"
     }
     /10\.225\.3\.[0-9]{1,3}/: {
-        $snmplocation = "Cloudtop T2"
-        $snmpcommunity = "CLOUDTOPT2"
+        $snmplocation = "Cloudtop T3"
+        $snmpcommunity = "CLOUDTOPT3"
     }
     }
 #    notify{'Giving snmp settings for $::ipaddress_eth0 located at $::snmplocation}':}

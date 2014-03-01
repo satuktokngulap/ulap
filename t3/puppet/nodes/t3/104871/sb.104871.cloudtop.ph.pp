@@ -6,11 +6,11 @@ node 'sb.104871.cloudtop.ph'
      #   gateway => '10.225.3.1'
      #}
      class {'t3-base-configureT3':
-        localIP => '10.225.3.132',
-        peerIP => '10.225.3.131',
-        localIPMI => '10.225.3.134',
-        peerIPMI => '10.225.3.133',
-        virtualIP => '10.225.3.135',
+        localIP => '10.225.3.82',
+        peerIP => '10.225.3.81',
+        localIPMI => '10.225.3.84',
+        peerIPMI => '10.225.3.83',
+        virtualIP => '10.225.3.85',
         hostname => 'sb.104871.cloudtop.ph'
      }
      class {'t3-base-drbd':}
