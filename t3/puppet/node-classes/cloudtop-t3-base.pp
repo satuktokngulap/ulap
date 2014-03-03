@@ -87,38 +87,34 @@ class cloudtop-t3-base
 
     # RSYSLOG
     class {'rsyslog':
-#        firewall => true,
-#        firewall_tool => 'iptables',
-#        firewall_src => '10.225.1.200',
+        firewall        => true,
+        firewall_tool   => 'iptables',
+        firewall_src    => '10.225.1.200',
     }
 
     # SSH
 
     # IPTABLES
-#    iptables::rule {
-#    'ssh-gw':
-#        port => '22',
-#        protocol => 'tcp',
-#        source => '10.225.1.202',
-#    }
-#    iptables::rule {
-#        'snmp':
-#            port => '161',
-#            protocol => 'udp',
-#            source => '10.225.1.201',
-#    }
+    iptables::rule {
+        'ssh-gw':
+            port        => '22',
+            protocol    => 'tcp',
+            source      => '10.225.1.202',
+    }
+
+    iptables::rule {
+        'snmp':
+            port        => '161:162'
+            protocol    => 'udp',
+            source      => '10.225.1.201',
+    }
 
     # TURN OFF UNNECESSARY SERVICES
     service { 'netfs':
-        ensure => stopped,
+            ensure      => stopped,
     }
-    service { 'portmap':
-        ensure => stopped,
-    }
+
     service { 'rpcbind':
-        ensure => stopped,
-    }
-    service {'iptables':
-        ensure => stopped,
+            ensure      => stopped,
     }
 }
