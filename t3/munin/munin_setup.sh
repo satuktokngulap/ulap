@@ -20,25 +20,26 @@
 #        *upd ports, restricted to local subnet:
 #          - 161:162 (snmp)
 #
-#    3. SNMP is installed on all VMs and 
-#       baremetal nodes, with configured 
-#       'CLOUDTOPT3' as read-only community
+#    3. SNMP is installed on all VMs and baremetal 
+#       nodes, with configured 'CLOUDTOPT3' as 
+#       read-only community and SNMP is accessible 
+#       from all the VMs and nodes 
+#       (test with snmpget/snmpwalk)
 #
 ###################################################
+function die() {
+    [[ $LOG_TO_MESSAGES ]] && logger >&2 "[MUNIN_SETUP][EXIT] $@" || echo >&2 "[MUNIN_SETUP][EXIT] $@"
+    exit 1
+}
 
 LOG_TO_MESSAGES=""
 SNMP_V3_PWD="muninpasswd"
 HOSTNAME=$(hostname)
 MGMT_IP_ADDR=$(ifconfig br0 | grep 'inet addr' | cut -d':' -f2 | cut -d' ' -f1)
-[[ -z $MGMT_IP_ADDR ]] && $(ifconfig eth0 | grep 'inet addr' | cut -d':' -f2 | cut -d' ' -f1) || die "Cannot find IP address in interfaces 'br0' or 'eth0'"
+[[ -z $MGMT_IP_ADDR ]] && die "Cannot find IP address in interfaces 'br0'"
 
 function log_info(){
     [[ $LOG_TO_MESSAGES ]] && logger >&2 "[MUNIN_SETUP] $@" || echo >&2 "[MUNIN_SETUP] $@"
-}
-
-function die() {
-    [[ $LOG_TO_MESSAGES ]] && logger >&2 "[MUNIN_SETUP][EXIT] $@" || echo >&2 "[MUNIN_SETUP][EXIT] $@"
-    exit 1
 }
 
 function log_error(){
@@ -59,10 +60,14 @@ function create_munin_snmp_plugins(){
   echo -ne "Creating SNMP plugins for $1... "
   declare -a SYMLINKS=$(munin-node-configure --shell --snmp $1 --snmpversion 2c --snmpcommunity CLOUDTOPT3)
 
-  while read -r LINE; do
-	eval $LINE
-  done <<< "$SYMLINKS"
-  echo "Done!"
+  if [ $SYMLINKS ] ; then
+    while read -r LINE; do
+        eval $LINE
+    done <<< "$SYMLINKS"
+    echo "Done!"
+  else
+    die "Cannot find SNMP plugins for host '$1'! Check if this node has SNMP access to '$1'!"
+  fi
 }
 
 [[ $EUID -ne 0 ]] && die "Munin setup script must be run as root" 1>&2
@@ -138,20 +143,20 @@ chkconfig --levels 235 munin-node on
 #select appropriate munin config template
 
 SCRIPT_DIR=$(get_script_dir)
-#Node A
 if [[ $(hostname | grep "sa") ]]; then
-cp "$SCRIPT_DIR/utils/sa.munin.conf" /etc/munin/munin.conf
-create_munin_snmp_plugins "sa.local"
-create_munin_snmp_plugins "ldap.local"
-create_munin_snmp_plugins "rdpa.local"
-#Node B
+    #Node A
+    cp "$SCRIPT_DIR/utils/sa.munin.conf" /etc/munin/munin.conf
+    create_munin_snmp_plugins "sa.local"
+    create_munin_snmp_plugins "ldap.local"
+    create_munin_snmp_plugins "rdpa.local"
 elif [[ $(hostname | grep "sb") ]]; then
-cp "$SCRIPT_DIR/utils/sb.munin.conf" /etc/munin/munin.conf
-create_munin_snmp_plugins "sb.local"
-create_munin_snmp_plugins "lms.local"
-create_munin_snmp_plugins "rdpb.local"
+    #Node B
+    cp "$SCRIPT_DIR/utils/sb.munin.conf" /etc/munin/munin.conf
+    create_munin_snmp_plugins "sb.local"
+    create_munin_snmp_plugins "lms.local"
+    create_munin_snmp_plugins "rdpb.local"
 else
-die "Hostname does not identify if node is 'sa' or 'sb'!"
+    die "Hostname does not identify if node is 'sa' or 'sb'!"
 fi
 
 #Selinux policies
