@@ -26,6 +26,7 @@ class t3-base-2node-gfs {
         command => "/root/scripts/2node-gfs.sh",
         require => File['/root/scripts/2node-gfs.sh'],
         logoutput => true,
+        timeout => 6000,
     }
     File['/root/scripts'] -> File['/root/scripts/2node-gfs.sh'] -> Exec['2node-gfs.sh']
 

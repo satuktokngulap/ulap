@@ -45,6 +45,8 @@ class t3-base-lvm {
         command => "clvmd -R",
         path => "/usr/bin:/usr/sbin:/bin:/usr/local/bin",
         #refreshonly => true,
+        logoutput => true,
+        timeout => 6000,
     
     }
 
@@ -60,6 +62,7 @@ class t3-base-lvm {
         command => "/root/scripts/2node-lvm.sh",
         require => File['/root/scripts/2node-lvm.sh'],
         logoutput => true,
+        timeout => 6000,
     }
     File['/root/scripts/2node-lvm.sh'] -> Exec['2node-lvm.sh']
 

@@ -8,30 +8,30 @@
 
 class t3-base-install-prelim {
     notify{ 'Installing Preliminaries':}
-    notify{"Setting up proxy":}
-    file {"/etc/profile.d/export_proxy.sh":
+    notify{'Setting up proxy':}
+    file {'/etc/profile.d/export_proxy.sh':
         content => inline_template("export http_proxy='http://10.16.5.100:8080' \n export https_proxy='http://10.16.5.100:8080'\n")
     }
-    notify{"Setting up as CloudTop Base server":}
+    notify{'Setting up as CloudTop Base server':}
     include cloudtop-t3-base
 
     # Check restrict tick.redhat
-    
+
     # Installing Third-party repository
 
-    notify{"Installing ELREPO repository packages":}
+    notify{'Installing ELREPO repository packages':}
     package {'elrepo':
 #        unless => 'rpm -qa | grep elrepo-release',
-        ensure => present,
-        source => "http://elrepo.org/elrepo-release-6-5.el6.elrepo.noarch.rpm",
-        provider => 'rpm',
+        ensure      => present,
+        source      => 'http://elrepo.org/elrepo-release-6-5.el6.elrepo.noarch.rpm',
+        provider    => 'rpm',
     }
-    
+
 
     # Package installation
 
-    notify{"Setting package groups (KVM,cluster,DRBD,GFS,NFS,Utilities)":}
-    
+    notify{'Setting package groups (KVM,cluster,DRBD,GFS,NFS,Utilities)':}
+
     # KVM packages
     $kvmpackages = ['qemu-kvm-tools','qemu-kvm',
                     'python-virtinst','virt-manager','virt-viewer',
@@ -51,44 +51,43 @@ class t3-base-install-prelim {
     # Utility packages
     $utilpackages = ['syslinux','gpm','mlocate','rsync','wget']
 
-    notify{"Installing KVM packages":}
+    notify{'Installing KVM packages':}
     package { $kvmpackages:
         ensure => present,
         }
 
-    notify{"Installing Cluster packages":}
+    notify{'Installing Cluster packages':}
     package { $clusterpackages:
         ensure => present,
         }
 
-    notify{"Installing GFS2 packages":}
+    notify{'Installing GFS2 packages':}
     package { $gfs2packages:
         ensure => present,
         }
-    
-    notify{"Installing NFS packages":}
+
+    notify{'Installing NFS packages':}
     package { $nfspackages:
         ensure => present,
         }
 
-    notify{"Installing Utility packages":}
+    notify{'Installing Utility packages':}
     package { $utilpackages:
         ensure => present,
         }
 
-    notify{"Installing DRBD packages":}
+    notify{'Installing DRBD packages':}
     package { $drbdpackages:
-        require => Package['elrepo'],
-        ensure => present,
+        ensure      => present,
+        require     => Package['elrepo'],
         }
 
-    notify{"Installing obliterate-peer.sh":}
+    notify{'Installing obliterate-peer.sh':}
 
     file {'/sbin/obliterate-peer.sh':
-        ensure => present,
-    #    source => "http://alteeve.com/files/an-cluster/sbin/obliterate-peer.sh",
-        source => "puppet:///modules/ct-files/t3-scripts/obliterate-peer.sh",
-        mode => 755,
+        ensure  => present,
+        source  => 'puppet:///modules/ct-files/t3-scripts/obliterate-peer.sh',
+        mode    => '0755',
 
     }
     #
@@ -103,8 +102,8 @@ class t3-base-install-prelim {
     }
     exec {'ssh-keygen':
         command => 'ssh-keygen -t rsa -N "" -b 2048 -f ~/.ssh/id_rsa',
-        cwd => '/root',
-        path    => ["/usr/bin", "/usr/sbin"],
+        cwd     => '/root',
+        path    => ['/usr/bin', '/usr/sbin'],
         creates => '/root/.ssh/id_rsa',
 
     }

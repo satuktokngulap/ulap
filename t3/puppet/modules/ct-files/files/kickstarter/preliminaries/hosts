@@ -1,6 +1,7 @@
 127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4
 ::1         localhost localhost.localdomain localhost6 localhost6.localdomain6
 
+10.225.1.215    puppetmaster.cloudtop.ph
 MY_IP		MY_NAME
 MY_PEER		PEER_NAME
 IPMI_LO		LOCAL_IPMI_NAME
