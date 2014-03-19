@@ -1,0 +1,15 @@
+Installation:
+
+- Make the file 'install.sh' executable via 
+  chmod, then run as root
+
+- 'install.sh' takes in 3 arguments, which are the IP addresses of the LDAP/MGMT and the 2 RDP VMs
+
+- reboot TC to start into load balancer and then RDP right away
+
+- NOTE: run /opt/rdpstarter/client_starter.sh to manually start load balancer
+
+Uninstallation:
+
+- Make the file 'uninstall.sh' executable via 
+  chmod, then run as root
