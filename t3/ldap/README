@@ -1,18 +1,33 @@
 ## Assumptions for the LDAP gold image:
-##  1. openldap-servers openldap-clients packages are installed
-##  2. olcDatabase config file for LDAP for client accounts have no olcAccess fields yet but 
+##  - openldap-servers openldap-clients packages are installed
+##  - olcDatabase config file for LDAP for client accounts have no olcAccess fields yet but 
 ##		have markers for them "olcAccess: {x}" where x is the field index
-##  3. olcDatabaseConfig file for LDAP for client accounts have olcIndex configured
-##	4. olcDatabase config file for LDAP for sys-ads have olcAccess and olcIndex configured
-##	
+##  - olcDatabaseConfig file for LDAP for client accounts have olcIndex configured
+##	- olcDatabase config file for LDAP for sys-ads have olcAccess and olcIndex configured
+##	- rsyslog and logrotate for slapd are fixed
 
 
 Scripts are to be executed in the following order:
 
 t3-server.sh
+	-sets up the password for the different LDAP server backends
+	-hostname update
+	-/etc/hosts update
+	-updates the olcSuffix for the client backend
+
 t3-server1.sh
-t3-clients-initials.sh
+	- configures rsyslog logging if not yet already done
+	- (re)creates a self-signed certificate for the LDAP server
+	*NOTE: THIS SOLUTION IS TEMPORARY*
+	- adds the password policy and synchronization modules
+	- adds the root and other initial entries for the client and sysad backends
+
+t3-admins.sh
+	- adds sysads local to the school to LDAP
+	
 admins-initials.sh
+	- adds cloud team accounts to the sysad backend
+	- adds sudo policies
 
 The arguments for each script is as follows:
 

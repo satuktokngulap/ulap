@@ -1,0 +1,38 @@
+#!/bin/bash
+
+SCHID=$1
+PASSWD=$2
+
+DN="dc=cloudtop,dc=ph"
+
+yum install pam_ldap sssd libsss_sudo
+
+authconfig --enablesssd --enablesssdauth --enablecachecreds --enableldap \
+    --enableldaptls --enableldapauth --ldapserver=ldap.$SCHID.cloudtop.ph --ldapbasedn="$BASEDN" \
+    --disablenis --disablekrb5 --enableshadow --enablemkhomedir \
+    --enablelocauthorize --updateall
+
+cat > /etc/sssd/sssd.conf << EOF
+[domain/default]
+debug_level = 5
+ldap_id_use_start_tls = True
+cache_credentials = True
+ldap_search_base = dc=cloudtop,dc=ph
+ldap_user_search_base = ou=users,ou=sysads,dc=cloudtop,dc=ph
+ldap_group_search_base = ou=roles,ou=sysads,dc=cloudtop,dc=ph
+ldap_sudo_search_base = ou=sudoroles,ou=sysads,dc=cloudtop,dc=ph
+id_provider = ldap
+auth_provider = ldap
+chpass_provider = ldap
+ldap_uri = ldaps://ldap.$SCHID.cloudtop.ph
+ldap_tls_cacertdir = /etc/openldap/certs
+ldap_default_bind_dn = cn=auth,dc=cloudtop,dc=ph
+ldap_default_authtok_type = password
+ldap_default_authtok = $TMPPWD
+enumerate = True
+
+[sssd]
+services = nss, pam, sudo, ssh
+
+[ssh]
+EOF

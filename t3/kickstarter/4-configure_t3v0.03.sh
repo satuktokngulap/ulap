@@ -1,11 +1,13 @@
 #!/bin/bash
-# CloudTop: T3 2-Node DRBD Configuration v0.05
+# CloudTop: T3 2-Node DRBD Configuration v0.06
 # This script sets up configuration files for 2-Node T3 servers
 # It accepts IP address arguments (See usage below), and parses these into
 # template configuration files before copying them into the
 # appropriate directories
 #
 # Author: Isabel Montes
+# Updated: Kenan Virtucio
+# Date: February 25, 2014
 
 # Requires the command to be supplied with 6 arguments:
 # Local IP address
@@ -45,8 +47,8 @@ fi
 #	LMS VM	- <subnet>.21
 #	RDP A VM- <subnet>.24
 #	RDP B VM- <subnet>.25
-RDPAIP="$(echo $MYIP | gawk -F'.' '{print $1"."$2"."$3".24"}')"
-RDPBIP="$(echo $MYIP | gawk -F'.' '{print $1"."$2"."$3".25"}')"
+RDPAIP="$(echo $MYIP | gawk -F'.' '{print $1"."$2"."$3".22"}')"
+RDPBIP="$(echo $MYIP | gawk -F'.' '{print $1"."$2"."$3".23"}')"
 LDAPIP="$(echo $MYIP | gawk -F'.' '{print $1"."$2"."$3".20"}')"
 LMSIP="$(echo $MYIP | gawk -F'.' '{print $1"."$2"."$3".21"}')"
 
@@ -140,6 +142,10 @@ echo "ClUSTER: $MYCLUSTER"
 #	2. Peer's IP address and peer's hostname
 #	3. Local IPMI IP address and ipmi.<local hostname>
 #	4. Peer's IPMI IP address and ipmi.<peer's hostname>
+#	5.
+#	6.
+#	7.
+#	8.
 # Save the file to /tmp/hosts
 sed -e 's/MY_IP/'$MYIP'/g'\
     -e 's/MY_PEER/'$MYPEER'/g'\
@@ -148,7 +154,16 @@ sed -e 's/MY_IP/'$MYIP'/g'\
     -e 's/IPMI_LO/'$MYIPMI'/g'\
     -e 's/IPMI_RE/'$PEERIPMI'/g'\
     -e 's/LOCAL_IPMI_NAME/'ipmi.$MYNAME'/g'\
-    -e 's/PEER_IPMI_NAME/'ipmi.$MYPEERNAME'/g' < ${PRELIMPATH}hosts > /tmp/hosts
+    -e 's/PEER_IPMI_NAME/'ipmi.$MYPEERNAME'/g' \
+    -e 's/VIRT_IP/'$VIRTIP'/g' \
+    -e 's/VIRT_NAME/'virtualip.$MYCLUSTER.cloudtop.ph'/g' \
+    -e 's/LDAPIP/'$LDAPIP'/g' \
+    -e 's/LMSIP/'$LMSIP'/g' \
+    -e 's/RDPAIP/'$RDPAIP'/g' \
+    -e 's/RDPBIP/'$RDPBIP'/g' \
+    -e 's/LDAP_NAME/'ldap.$MYCLUSTER.cloudtop.ph'/g' \
+    -e 's/RDPA_NAME/'rdpa.$MYCLUSTER.cloudtop.ph'/g' \
+    -e 's/RDPB_NAME/'rdpb.$MYCLUSTER.cloudtop.ph'/g' < ${PRELIMPATH}hosts > /tmp/hosts
 
 # Take a backup of the existing /etc/hosts file, and replace 
 # it with the file generated into /tmp/hosts

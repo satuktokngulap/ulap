@@ -21,7 +21,7 @@ class  mcollective-node {
 }
 
 node 'cloudtop-base'
-{
+{ 
     # Add Admin Users
     add_user { cloudtopadmin:
       email => "gerryroxas@outlook.com",
