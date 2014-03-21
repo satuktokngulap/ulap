@@ -1,4 +1,4 @@
-/opt/lb_mgmt/lb_mgmt.log {
+/opt/lb_mgmt/logs/lb_mgmt.log {
         daily
         missingok
         rotate 7
