@@ -1,0 +1,11 @@
+/var/log/power.log {
+        daily
+	missingok
+        rotate 7
+        compress
+        copytruncate
+        notifempty
+        create 644 root root
+        size 1M
+        #su root root
+}
