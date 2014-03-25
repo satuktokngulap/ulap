@@ -1,0 +1,149 @@
+import socket, random, time
+from socket import error as SocketError
+from utils import LoadException
+HOST = ''
+SERVICE_PORT    = 54545
+#RDP_A           = "rdpa.tc.net"
+#RDP_B           = "rdpb.tc.net"
+RDP_A           = "10.225.3.148"
+RDP_B           = "10.225.3.149"
+MAX_RETRIES     = 90
+RETRY_INTERVAL  = 5
+SERVER_TIMEOUT  = 9
+LAST_SERVER     = ""
+SLEEP_TIME      = 5
+LOGGING         = True
+
+def log(msg):
+    if LOGGING:
+        print "[LB MGMT]: "+str(msg)
+
+def get_ip_address(ifname):
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        return socket.inet_ntoa(fcntl.ioctl(
+            s.fileno(),
+            0x8915,  # SIOCGIFADDR
+            struct.pack('256s', ifname[:15])
+        )[20:24])
+    except IOError as e:
+        log("Error retrieving IP address for interface [%s]!" % ifname)
+        return None
+
+def get_lb_server_data(lb_server_hostname, client_ip):
+    SERVICE_PORT = 54546
+    
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.connect((lb_server_hostname,SERVICE_PORT))
+    
+    command = "INQ %s" % client_ip
+    sock.send(command)
+    reply_data = sock.recv(1024)
+    sock.close()
+    data_list = []
+    for data in reply_data.split("/"):
+        data_list.append(int(data))
+    return data_list
+
+def get_lb_server_data_old(lb_server_hostname):
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.connect((lb_server_hostname,SERVICE_PORT))
+    
+    reply_data = sock.recv(1024)
+    sock.close()
+    data_list = []
+    for data in reply_data.split("/"):
+        data_list.append(int(data))
+    return data_list
+
+def load_balance(client_ip):
+    """
+        Returns the preferred RDP VM to connect to
+    """
+    log("Handling connection from [%s]" % client_ip)
+    
+    #Get load
+    try:
+        data_rdpa = get_lb_server_data(RDP_A, client_ip)
+    except SocketError as se:
+        data_rdpa = None
+    try:
+        data_rdpb = get_lb_server_data(RDP_B, client_ip)
+    except SocketError as se:
+        data_rdpb = None
+    
+    if (data_rdpa is None) and (data_rdpb is None):
+        raise LoadException("Can't retrieve load info from RDP VMs!")
+    
+    log("RDP_A load: "+str(data_rdpa))
+    log("RDP_B load: "+str(data_rdpa))
+    
+    #Handle duplicate tcps
+    dups_result = cmp_dups(data_rdpa[2], data_rdpa[2])
+    if dups_result is not None:
+        return dups_result
+    
+    else:
+    #Handle normal state (compare loads)
+        load_rdpa = data_rdpa[0:2]
+        load_rdpb = data_rdpb[0:2]
+        return cmp_load(load_rdpa, load_rdpb)
+
+def cmp_dups(dups_rdpa, dups_rdpb):
+    if (dups_rdpa is 0) and (dups_rdpb is 0):
+        return None
+    elif dups_rdpa > dups_rdpb:
+        return RDP_A
+    elif dups_rdpa < dups_rdpb:
+        return RDP_B
+    else:
+        RDP_VMS = [RDP_A, RDP_B]
+        return random.choice(RDP_VMS)
+        
+def cmp_load(load_rdpa, load_rdpb):
+    cur_load_rdpa = int(load_rdpa[0])
+    cur_load_rdpb = int(load_rdpb[0])
+    if False:
+        pass
+    elif cur_load_rdpa < cur_load_rdpb:
+        return RDP_A
+    elif cur_load_rdpa > cur_load_rdpb:
+        return RDP_B
+    else:
+        RDP_VMS = [RDP_A, RDP_B]
+        #return RDP_A
+        return random.choice(RDP_VMS)
+
+def main():
+    log("LB-MGMT Started!")
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    sock.bind((HOST, SERVICE_PORT))
+    sock.listen(1)
+
+    # Accept the connection once (for starter)
+    while True:
+        conn, addr = sock.accept()
+        
+        # RECEIVE CLIENT DATA
+        data = conn.recv(1024)
+
+        # PROCESS DATA
+        tokens = data.split(' ',1)            # Split by space at most once
+        command = tokens[0]                   # The first token is the command
+        reply = 'EMP No command/data sent from'
+        
+        if command=='INQ':                    # The client requests the data
+            client_ip = tokens[1].rstrip()    # Get the data as second token
+            reply = load_balance(client_ip)     # Return the stored data
+        else:
+            reply = 'UNK Unknown command sent [%s]' % data
+
+        # SEND REPLY
+        conn.send(reply)
+        conn.close()
+        time.sleep(SLEEP_TIME)
+    
+#dummy_tc_ip = "172.16.1.100"
+#load_balance(dummy_tc_ip)
+main()
