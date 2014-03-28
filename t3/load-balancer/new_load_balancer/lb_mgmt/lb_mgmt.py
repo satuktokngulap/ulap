@@ -15,7 +15,7 @@ LAST_SERVER     = ""
 SLEEP_TIME      = 1
 FIN_SLEEP_TIME  = 5
 LOGGING         = True
-logging.basicConfig(filename='/opt/lb_mgmt/lb_mgmt.log',level=logging.DEBUG)
+logging.basicConfig(filename='/opt/lb_mgmt/logs/lb_mgmt.log',level=logging.DEBUG)
 
 def log(msg):
     if LOGGING:
