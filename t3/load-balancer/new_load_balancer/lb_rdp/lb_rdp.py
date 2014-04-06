@@ -48,7 +48,8 @@ def discount_dups(matches, client_ip):
 def count_xrdp_connections(data_string, client_ip):
     
     subnet=get_ip_address(INTERFACE).rpartition(".")[0]+"."
-    xrdp_port=command_line_call_and_return("grep -m 1 '^port' /etc/xrdp/xrdp.ini")[0].partition("=")[2].rstrip()
+    #xrdp_port=command_line_call_and_return("grep -m 1 '^port' /etc/xrdp/xrdp.ini").partition("=")[2].rstrip()
+    xrdp_port="3389"
     pattern_string = 'tcp[ 0-9]+%s[0-9]+:%s[ 0-9]+%s[0-9]+:[ 0-9]+ESTABLISHED[ 0-9/]+xrdp' % (subnet,xrdp_port,subnet)
     
     p = re.compile(pattern_string)
