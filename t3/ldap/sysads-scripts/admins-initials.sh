@@ -23,6 +23,11 @@ if [ $# -ne 1 ];
 		exit 0;
 fi
 
+if pgrep slapd > /dev/null 2>&1
+then
+	service slapd stop
+fi
+
 cat > root.ldif << EOF
 dn: $BASEDN
 objectClass: dcObject
@@ -32,7 +37,6 @@ dc: cloudtop
 description: Cloudtop Root Entry
 
 dn: cn=replicator,$BASEDN
-objectClass: dcObject
 objectClass: simpleSecurityObject
 objectClass: organizationalRole
 cn: replicator
@@ -42,37 +46,38 @@ dn: cn=auth,$BASEDN
 objectClass: dcObject
 objectClass: simpleSecurityObject
 objectClass: organizationalRole
-cn: replicator
+cn: auth
+dc: cloudtop
 userPassword: $HPASSWD
 
 dn: ou=sysads,$BASEDN
 objectClass: organizationalUnit
 ou: sysads
 
-dn: ou=users,$BASEDN
+dn: ou=users,ou=sysads,$BASEDN
 objectClass: organizationalUnit
 ou: users
 
-dn: ou=groups,$BASEDN
+dn: ou=groups,ou=sysads,$BASEDN
 objectClass: organizationalUnit
 ou: groups
 
-dn: cn=sysad,ou=groups,$BASEDN
+dn: cn=sysad,ou=groups,ou=sysads,$BASEDN
 objectClass: posixGroup
 cn: sysad
 gidNumber: 5000
 memberUid: sysad
 
-dn: cn=ctel,ou=groups,$BASEDN
-objectClass: posixGroup
-cn: ctel
-gidNumber: 5001
-memberUid: ctel
+#dn: cn=ctel,ou=groups,ou=sysads,$BASEDN
+#objectClass: posixGroup
+#cn: ctel
+#gidNumber: 5001
+#memberUid: ctel
 
-dn: cn=cloud,ou=groups,$BASEDN
+dn: cn=cloud,ou=groups,ou=sysads,$BASEDN
 objectClass: posixGroup
 cn: cloud
-gidNumber: 1001
+gidNumber: 2001
 memberUid: kenan
 memberUid: belay
 memberUid: gene
@@ -81,13 +86,13 @@ memberUid: ken
 memberUid: lope
 memberUid: gerry
 
-dn: ou=sudoRules,$BASEDN
+dn: ou=sudoroles,ou=sysads,$BASEDN
 objectClass: organizationalUnit
-ou: sudoRules
+ou: sudoroles
 description: list of all defined sudo roles
 
-dn: cn=defaults,ou=sudoRoles,$BASEDN
-objectClass: sudoRole
+dn: cn=defaults,ou=sudoroles,ou=sysads,$BASEDN
+objectClass: sudorole
 cn: defaults
 description: default sudoOptions
 sudoOption: requiretty
@@ -137,10 +142,10 @@ description: sudo role definition for non-cloud team sysads
 sudoHost: ALL
 EOF
 
-ldapadd -H ldaps:/// -xD "cn=admin,$BASEDN" -f root.ldif -w $PASSWD
+ldapadd -H ldaps:/// -xD "cn=admin,$BASEDN" -f root.ldif -w $PASSWD -v
 
 cat > ctel.ldif << EOF
-dn: uid=ctel,ou=sysads,dc=cloudtop,dc=ph
+dn: uid=ctel,ou=users,ou=sysads,dc=cloudtop,dc=ph
 objectClass: inetOrgPerson
 objectClass: posixAccount
 objectClass: shadowAccount
@@ -155,25 +160,25 @@ userPassword: $HPASSWD
 employeeType: ctel
 EOF
 
-ldapadd -H ldaps:/// -xD "cn=admin,$BASEDN" -f ctel.ldif -w $PASSWD
+#ldapadd -H ldaps:/// -xD "cn=admin,$BASEDN" -f ctel.ldif -w $PASSWD -v
 
 ## insert cloud team account creation here
 cat > cloud.ldif << EOF
-dn: uid=belay,ou=sysads,dc=cloudtop,dc=ph
+dn: uid=belay,ou=users,ou=sysads,dc=cloudtop,dc=ph
 objectClass: inetOrgPerson
 objectClass: posixAccount
 objectClass: shadowAccount
 uid: belay
 sn: montes
 cn: belay montes
-uidNumber: 1001
+uidNumber: 2001
 loginShell: /bin/bash
 homeDirectory: /home/belay
-gidNumber: 1001
+gidNumber: 2001
 userPassword: $HPASSWD
 employeeType: sysad
 
-dn: uid=carlo,ou=sysads,dc=cloudtop,dc=ph
+dn: uid=carlo,ou=users,ou=sysads,dc=cloudtop,dc=ph
 objectClass: inetOrgPerson
 objectClass: posixAccount
 objectClass: shadowAccount
@@ -183,11 +188,11 @@ cn: carlo santos
 uidNumber: 1002
 loginShell: /bin/bash
 homeDirectory: /home/carlo
-gidNumber: 1001
+gidNumber: 2001
 userPassword: $HPASSWD
 employeeType: sysad
 
-dn: uid=gene,ou=sysads,dc=cloudtop,dc=ph
+dn: uid=gene,ou=users,ou=sysads,dc=cloudtop,dc=ph
 objectClass: inetOrgPerson
 objectClass: posixAccount
 objectClass: shadowAccount
@@ -197,11 +202,11 @@ cn: gene quevedo
 uidNumber: 1003
 loginShell: /bin/bash
 homeDirectory: /home/gene
-gidNumber: 1001
+gidNumber: 2001
 userPassword: $HPASSWD
 employeeType: sysad
 
-dn: uid=gerry,ou=sysads,dc=cloudtop,dc=ph
+dn: uid=gerry,ou=users,ou=sysads,dc=cloudtop,dc=ph
 objectClass: inetOrgPerson
 objectClass: posixAccount
 objectClass: shadowAccount
@@ -211,11 +216,11 @@ cn: gerry roxas
 uidNumber: 1004
 loginShell: /bin/bash
 homeDirectory: /home/gerry
-gidNumber: 1001
+gidNumber: 2001
 userPassword: $HPASSWD
 employeeType: sysad
 
-dn: uid=ken,ou=sysads,dc=cloudtop,dc=ph
+dn: uid=ken,ou=users,ou=sysads,dc=cloudtop,dc=ph
 objectClass: inetOrgPerson
 objectClass: posixAccount
 objectClass: shadowAccount
@@ -225,11 +230,11 @@ cn: ken salanio
 uidNumber: 1005
 loginShell: /bin/bash
 homeDirectory: /home/ken
-gidNumber: 1001
+gidNumber: 2001
 userPassword: $HPASSWD
 employeeType: sysad
 
-dn: uid=kenan,ou=sysads,dc=cloudtop,dc=ph
+dn: uid=kenan,ou=users,ou=sysads,dc=cloudtop,dc=ph
 objectClass: inetOrgPerson
 objectClass: posixAccount
 objectClass: shadowAccount
@@ -239,11 +244,11 @@ cn: kenan virtucio
 uidNumber: 1006
 loginShell: /bin/bash
 homeDirectory: /home/kenan
-gidNumber: 1001
+gidNumber: 2001
 userPassword: $HPASSWD
 employeeType: sysad
 
-dn: uid=lope,ou=sysads,dc=cloudtop,dc=ph
+dn: uid=lope,ou=users,ou=sysads,dc=cloudtop,dc=ph
 objectClass: inetOrgPerson
 objectClass: posixAccount
 objectClass: shadowAccount
@@ -253,10 +258,9 @@ cn: lope beltran
 uidNumber: 1007
 loginShell: /bin/bash
 homeDirectory: /home/lope
-gidNumber: 1001
+gidNumber: 2001
 userPassword: $HPASSWD
 employeeType: sysad
 EOF
 
-ldapadd -H ldaps:/// -xD "cn=admin,$BASEDN" -f cloud.ldif -w $PASSWD
-
+ldapadd -H ldaps:/// -xD "cn=admin,$BASEDN" -f cloud.ldif -w $PASSWD -v

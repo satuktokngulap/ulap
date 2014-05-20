@@ -1,12 +1,19 @@
 #!/bin/bash
-DN=$1
-SCHID=$2
-TMPPWD=$3
+SCHID=$1
+SCHNAME=$2
+SCHMUN=$3
+SCHREG=$4
+TMPPWD=$5
 
 
-if [ $# -ne 3 ]; then
-	
+if [ $# -ne 5 ]; then
+	echo "Wrong number of arguments passed"
+	exit
 fi
+
+DN="o=$1 $2,st=$3,l=$4,dc=cloudtop,dc=ph"
+
+set -e
 
 DEBIAN_FRONTEND=noninteractive apt-get install -y libnss-ldap nscd nss-updatedb libnss-db libpam-ccreds sudo-ldap
 
@@ -17,14 +24,14 @@ uri ldaps://ldap.$SCHID.cloudtop.ph
 ldap_version 3
 binddn cn=auth,dc=cloudtop,dc=ph
 bindpw $TMPPWD
-rootbinddn cn=admin,$DN
+#rootbinddn cn=admin,$DN
 pam_password md5
 ssl on
 tls_cacert /etc/ssl/certs/ldap.$SCHID.crt
 
-nss_base_passwd		   ou=users,ou=sysads,dc=cloudtop,dc=ph
-nss_base_shadow		   ou=users,ou=sysads,dc=cloudtop,dc=ph
-nss_base_group		   ou=roles,ou=sysads,dc=cloudtop,dc=ph
+nss_base_passwd		   ou=users,ou=sysads,dc=cloudtop,dc=ph?one
+nss_base_shadow		   ou=users,ou=sysads,dc=cloudtop,dc=ph?one
+nss_base_group		   ou=groups,ou=sysads,dc=cloudtop,dc=ph?one
 
 nss_base_passwd		   uid=sysad,o=999 NECTest,st=QC,l=NCR,dc=cloudtop,dc=ph?base
 nss_base_shadow 	   uid=sysad,o=999 NECTest,st=QC,l=NCR,dc=cloudtop,dc=ph?base
@@ -97,7 +104,7 @@ nss_updatedb ldap
 getent passwd
 
 if [ -z $(cat /etc/ssh/sshd_config | grep DenyGroups) ]; then
-echo "DenyGroups teachers students"
+echo "DenyGroups teachers students" >> /etc/ssh/sshd_config
 fi
 
 #reboot

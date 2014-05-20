@@ -48,33 +48,31 @@ echo "activating SELinux"
 echo "Updating the hostname and /etc/hosts"
 TMPHNAME="ldap.$SCHID.cloudtop.ph"
 
-hostname $TMPHNAME;
+#hostname $TMPHNAME;
 hostname
 
-ADDR=$(ifconfig eth0 | grep inet | grep -v inet6 |  awk '{print $2}')
-IP=${ADDR#"addr:"}
-HOSTENT=$(cat /etc/hosts | grep "$TMPHNAME")
+#ADDR=$(ifconfig eth0 | grep inet | grep -v inet6 |  awk '{print $2}')
+#IP=${ADDR#"addr:"}
+#HOSTENT=$(cat /etc/hosts | grep "$TMPHNAME")
 
-sed -i "s/HOSTNAME=.*/HOSTNAME=$TMPHNAME/g" /etc/sysconfig/network
+#sed -i "s/HOSTNAME=.*/HOSTNAME=$TMPHNAME/g" /etc/sysconfig/network
 
-cat /etc/sysconfig/network
+#cat /etc/sysconfig/network
 
 #service network restart
 
-if [ -z "$HOSTENT" ] 
-then
-	echo "$IP $TMPHNAME" >> /etc/hosts
-else
-	sed -i "s/^.*$TMPHNAME$/$IP $TMPHNAME/g" /etc/hosts
-fi
+#if [ -z "$HOSTENT" ] 
+#then
+#	echo "$IP $TMPHNAME" >> /etc/hosts
+#else
+#	sed -i "s/^.*$TMPHNAME$/$IP $TMPHNAME/g" /etc/hosts
+#fi
 
 cat /etc/hosts
 
-echo "Updated hostname and /etc/hosts. To make changes permanent, rebooting must be done."
+#echo "Updated hostname and /etc/hosts. To make changes permanent, rebooting must be done."
 
 #echo "IP: $IP"
-
-echo "Updating access control lists for LDAP for clients"
 
 echo "Updating Base DN, root DN, and passwords"
 
@@ -94,4 +92,4 @@ cat /etc/openldap/slapd.d/cn=config/olcDatabase={3}bdb.ldif | grep olcRootPW
 
 echo "Updated Base DN, root DN, and passwords"
 
-reboot
+#reboot

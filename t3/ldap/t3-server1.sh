@@ -9,7 +9,6 @@
 # - configures rsyslog logging if not yet already done
 # - (re)creates a self-signed certificate for the LDAP server
 # - adds the password policy and synchronization modules
-# - adds the root and other initial entries for the client and sysad backends
 
 SCHID=$1
 SCHNAME=$2
@@ -62,9 +61,33 @@ slapd:ALL
 EOF
 fi
 
+chcon -t slapd_db_t -R /var/lib/ldap2
 slaptest -uv
-service slapd restart
+
+if pgrep slapd > /dev/null 2>&1
+then
+	service slapd restart
+else
+	service slapd start
+fi
+
 chkconfig slapd on
+sleep 10
+
+set -e
+
+cat > olcAccess1.ldif << EOF
+dn: olcDatabase={2}bdb,cn=config
+changetype: modify
+add: olcAccess
+olcAccess: {0}to attrs=employeeType by dn="cn=auth,$DN" read by self read by * none
+olcAccess: {1}to attrs=userPassword,shadowLastChange by self write by anonymous auth by * none
+olcAccess: {2}to dn.base="" by * none
+olcAccess: {3}to * by dn="cn=auth,$DN" read by self write by * none
+EOF
+
+echo "Adding OLC access for replication and and referrals"
+ldapmodify -xvD "cn=config" -H ldaps:/// -w $TMPPWD -f olcAccess1.ldif
 
 cat > modules.ldif << EOF
 dn: cn=module,cn=config
@@ -73,6 +96,7 @@ cn: module
 olcModulePath: /usr/lib64/openldap
 olcModuleLoad: syncprov.la
 olcModuleLoad: ppolicy.la
+olcModuleLoad: unique.la
 EOF
 
 echo "Adding modules for password policy and replication"
@@ -86,6 +110,14 @@ objectClass: olcPPolicyConfig
 olcPPolicyHashCleartext: TRUE
 olcPPolicyUseLockout: FALSE
 olcPPolicyDefault: cn=default,$DN
+
+olcOverlay: unique
+objectClass: olcOverlayConfig
+objectClass: olcUniqueConfig
+olcUniqueAttribute: employeeNumber
+olcUniqueAttribute: uid
+#olcUniqueAttribute: mail
+#olcUniqueAttribute: commonName
 
 #dn: olcDatabase={2}bdb,cn=config
 #changetype: modify
@@ -101,90 +133,27 @@ EOF
 echo "Creating password policy settings"
 ldapadd -xvD "cn=config" -H ldaps:/// -w $TMPPWD -f overlays.ldif
 
-cat > clientroot.ldif << EOF
-dn: $DN
-objectClass: organization
-o: $SCHID $SCHNAME
-st: $SCHMUN
-l: $SCHREG
+#cat > referral.ldif << EOF
+#dn: dc=cloudtop,dc=ph
+#objectClass: organization
+#objectClass: dcObject
+#dc: cloudtop
+#o: cloudtop
 
-dn: cn=auth,$DN
-objectClass: simpleSecurityObject
-objectClass: organizationalRole
-cn: auth
-description: Account for auth
-userPassword: 
-EOF
+#dn: l=$SCHREG,dc=cloudtop,dc=ph
+#objectClass: locality
+#l: $SCHREG
 
-echo "Adding root DSE for LDAP"
-ldapadd -xvD "cn=admin,$DN" -H ldaps:/// -w $TMPPWD -f clientroot.ldif
+#dn: st=$SCHMUN,l=$SCHREG,dc=cloudtop,dc=ph
+#objectClass: locality
+#st: $SCHMUN
+#l: $SCHREG
 
-cat > olcAccess1.ldif << EOF
-dn: olcDatabase={2}bdb,cn=config
-changetype: modify
-add: olcAccess
-olcAccess: {0}to * by dn="cn=admin,dc=cloudtop,dc=ph" write by dn="cn=replicator,$DN" read
-olcAccess: {1}to dn.children="ou=users,$DN" by dn.one="uid=dataadmin,ou=users,$DN" write by * none
-olcAccess: {2}to attrs=userPassword,shadowLastChange by self read by anonymous auth by * none
-olcAccess: {3}to * by dn="cn=auth,$DN" read by self read by * none
-EOF
+#dn: $DN
+#objectClass: referral
+#objectClass: extensibleObject
+#o: $SCHID $SCHNAME
+#ref: ldaps://ldap.$SCHID.cloudtop.ph/$DN
+#EOF
 
-echo "Adding OLC access for replication and and referrals"
-ldapmodify -xvD "cn=config" -H ldaps:/// -w $TMPPWD -f olcAccess1.ldif
-
-cat > ppolicy.ldif <<EOF
-dn: ou=pwpolicies,$DN
-objectClass: organizationalUnit
-objectClass: top
-ou: policies
-
-dn: cn=default,ou=pwpolicies,$DN
-cn: default
-objectClass: pwdPolicy
-objectClass: person
-objectClass: top
-pwdAllowUserChange: TRUE
-pwdAttribute: 2.5.4.35
-pwdExpireWarning: 2592000
-pwdFailureCountInterval: 30
-pwdGraceAuthNLimit: 0
-pwdInHistory: 10
-pwdLockout: TRUE
-pwdLockoutDuration: 3600
-pwdMaxAge: 31536000
-pwdMaxFailure: 5
-pwdMinAge: 3600
-pwdMinLength: 6
-pwdMustChange: FALSE
-pwdSafeModify: FALSE
-sn: dummy value
-EOF
-
-
-echo "Adding password policy for clients"
-ldapadd -xvD "cn=admin,$DN" -H ldaps:/// -w $TMPPWD -f olcAccess1.ldif
-
-cat > referral.ldif << EOF
-dn: dc=cloudtop,dc=ph
-objectClass: organization
-objectClass: dcObject
-dc: cloudtop
-o: cloudtop
-
-dn: l=$SCHREG,dc=cloudtop,dc=ph
-objectClass: locality
-l: $SCHREG
-
-dn: st=$SCHMUN,l=$SCHREG,dc=cloudtop,dc=ph
-objectClass: locality
-st: $SCHMUN
-l: $SCHREG
-
-dn: $DN
-objectClass: referral
-objectClass: extensibleObject
-o: $SCHID $SCHNAME
-ref: ldaps://ldap.$SCHID.cloudtop.ph/$DN
-EOF
-
-ldapadd -xvD "cn=admin,dc=cloudtop,dc=ph" -H ldaps:/// -w $TMPPWD -f referral.ldif
+#ldapadd -xvD "cn=admin,dc=cloudtop,dc=ph" -H ldaps:/// -w $TMPPWD -f referral.ldif

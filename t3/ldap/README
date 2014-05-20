@@ -11,8 +11,8 @@ Scripts are to be executed in the following order:
 
 t3-server.sh
 	-sets up the password for the different LDAP server backends
-	-hostname update
-	-/etc/hosts update
+	-hostname update (disabled) 
+	-/etc/hosts update (disabled)
 	-updates the olcSuffix for the client backend
 
 t3-server1.sh
@@ -20,19 +20,16 @@ t3-server1.sh
 	- (re)creates a self-signed certificate for the LDAP server
 	*NOTE: THIS SOLUTION IS TEMPORARY*
 	- adds the password policy and synchronization modules
-	- adds the root and other initial entries for the client and sysad backends
 
-t3-admins.sh
-	- adds sysads local to the school to LDAP
-	
-admins-initials.sh
-	- adds cloud team accounts to the sysad backend
-	- adds sudo policies
+t3-clients-initials.sh
+	- adds the root and other initial entries for the client and sysad backends
+	- Adds default password policy for clients
+	- Creates local administration accounts, one for the system and one for data
 
 The arguments for each script is as follows:
 
 NOTE: ANY SCHOOL DETAIL IS EXPECTED TO BE BASED ON THE DepEd spreadsheet.
-	  It is advised that double quotes (") are used for all the arguments.
+	  It is advised that double quotes (") are used for all the arguments except for passwords
 
 t3-server.sh, t3-server1.sh, t3-clients-initials.sh (required)
 --------------------------------------------------------------
@@ -47,7 +44,5 @@ t3-clients-initials.sh (optional, following the required parameters)
 	- school division
 	- school district
 	- province ID (from the DepEd spreadsheet)
-
-admins-initial.sh (required)
-----------------------------
-	- a temporary password
+	
+SCRIPTS for SYSADS in LDAP for T3 located in sysads-scripts/

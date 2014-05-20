@@ -31,7 +31,7 @@ ldap_tls_cacertdir = /etc/openldap/certs
 ldap_default_bind_dn = cn=auth,dc=cloudtop,dc=ph
 ldap_default_authtok_type = password
 ldap_default_authtok = $TMPPWD
-ldap_access_filter = employeeType=sysad
+ldap_access_filter = (objectClass=posixAccount)
 enumerate = True
 
 [sssd]
@@ -39,6 +39,8 @@ services = nss, pam, sudo, ssh
 
 [ssh]
 EOF
+
+timeout 3 openssl s_client -connect ldap.$SCHID.cloudtop.ph:636 -showcerts >> /etc/openldap/certs/ldap.$SCHID.crt
 
 cat > /etc/ldap.conf << EOF
 tls_cacertdir /etc/openldap/certs
@@ -48,6 +50,8 @@ base dc=cloudtop,dc=ph
 binddn cn=auth,dc=cloudtop,dc=ph
 bindpw $TMPPWD
 ssl on
+referrals on
+
 sudoers_base ou=sudoroles,ou=sysads,dc=cloudtop,dc=ph
 sudoers_debug 5
 EOF
@@ -61,12 +65,10 @@ ln -s  /etc/ldap.conf  /etc/pam_ldap.conf
 mv /etc/sudo-ldap.conf /etc/sudo-ldap.conf.bak
 ln -s  /etc/ldap.conf  /etc/sudo-ldap.conf
 
-NSSSUDO=cat /etc/nsswitch.conf | grep sudoers
+NSSSUDO=$(cat /etc/nsswitch.conf | grep sudoers)
 
 if [ -z $NSSSUDO ]; then
 echo "sudoers:    sss ldap" >> /etc/nsswitch.conf
 fi
 
 service sssd restart
-
-

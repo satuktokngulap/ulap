@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # Author: Carlo Santos
 # 
@@ -48,17 +48,47 @@ l: $SCHREG
 description: SchDivName=$6,SchDivDist=$7,ProvID=$8
 EOF
 
-ldapadd -H ldaps:/// -xD "cn=admin,$DN" -f root.ldif -w $TMPPWD
+ldapadd -H ldaps:/// -xD "cn=admin,$DN" -f root.ldif -w $TMPPWD -cv
 
 HPASSWD=$(slappasswd -s $TMPPWD)
 
 cat > initials.ldif << EOF
+dn: cn=auth,$DN
+objectClass: simpleSecurityObject
+objectClass: organizationalRole
+cn: auth
+description: Account for auth
+userPassword: $HPASSWD
+
+dn: cn=replicator,$DN
+objectClass: simpleSecurityObject
+objectClass: organizationalRole
+cn: replicator
+description: Account for replication
+userPassword: $HPASSWD
+
+dn: ou=users,$DN
+objectClass: organizationalUnit
+ou: users
+st: $SCHMUN
+l: $SCHREG
+
+dn: ou=roles,$DN
+objectClass: organizationalUnit
+ou: roles
+st: $SCHMUN
+l: $SCHREG
+EOF
+
+ldapadd -H ldaps:/// -xD "cn=admin,$DN" -f initials.ldif -w $TMPPWD -cv
+
+cat > ppolicy.ldif <<EOF
 dn: ou=pwpolicies,$DN
 objectClass: organizationalUnit
 objectClass: top
-ou: policies
+ou: pwpolicies
 
-dn: cn=default,$DN
+dn: cn=default,ou=pwpolicies,$DN
 cn: default
 objectClass: pwdPolicy
 objectClass: person
@@ -78,37 +108,10 @@ pwdMinLength: 6
 pwdMustChange: FALSE
 pwdSafeModify: FALSE
 sn: dummy value
-
-dn: cn=auth,$DN
-objectClass: simpleSecurityObject
-objectClass: organizationalRole
-cn: auth
-description: Account for auth
-userPassword: $HPASSWD
-
-dn: cn=replicator,$DN
-objectClass: simpleSecurityObject
-objectClass: organizationalRole
-cn: replicator
-description: Account for replication
-userPassword: $HPASSWD
-
-dn: ou=users,$DN
-objectClass: organizationalUnit
-ou: users
-o: $SCHID $SCHNAME
-st: $SCHMUN
-l: $SCHREG
-
-dn: ou=roles,$DN
-objectClass: organizationalUnit
-ou: roles
-o: $SCHID SCHNAME
-st: $SCHMUN
-l: $SCHREG
 EOF
 
-ldapadd -H ldaps:/// -xD "cn=admin,$DN" -f root.ldif -w $TMPPWD
+echo "Adding password policy for clients"
+ldapadd -xvD "cn=admin,$DN" -H ldaps:/// -w $TMPPWD -f ppolicy.ldif
 
 cat > schooladmins.ldif << EOF
 dn: uid=sysad,ou=users,$DN
@@ -133,5 +136,5 @@ description: data administrator for this setup
 userpassword: $HPASSWD
 EOF
 
-ldapadd -xD "cn=admin,$DN" -w $PASSWD -H ldaps:/// -f schooladmins.ldif
+ldapadd -xvD "cn=admin,$DN" -w $TMPPWD -H ldaps:/// -f schooladmins.ldif
 

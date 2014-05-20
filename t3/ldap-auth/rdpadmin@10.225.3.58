@@ -5,10 +5,10 @@ TMPPWD=$3
 
 
 if [ $# -ne 3 ]; then
-	echo "The number of arguments passed is not equal to 3."
+	
 fi
 
-DEBIAN_FRONTEND=noninteractive apt-get install -y libnss-ldap nscd nss-updatedb libnss-db libpam-ccreds nss-pam-ldapd
+DEBIAN_FRONTEND=noninteractive apt-get install -y libnss-ldap nscd nss-updatedb libnss-db libpam-ccreds
 
 cat > /etc/cron.hourly/nssupdate.sh << EOF
 #!/bin/sh
@@ -19,50 +19,32 @@ EOF
 chmod +x /etc/cron.hourly/nssupdate.sh
 
 sed -i "s/passwd:.*$/passwd: compat ldap/g" /etc/nsswitch.conf
-sed -i "s/group:.*$/group: compat ldap/g" /etc/nsswitch.conf
-sed -i "s/shadow:.*$/shadow: compat ldap/g" /etc/nsswitch.conf
+sed -i "s/group:.*$/passwd: compat ldap/g" /etc/nsswitch.conf
+sed -i "s/shadow:.*$/passwd: compat ldap/g" /etc/nsswitch.conf
 
-
-if [ -z $(cat /etc/nsswitch.conf | grep sudoers ) ]; then
-	echo "sudoers: files ldap" >> /etc/nsswitch.conf
-else
-	sed -i "s/sudoers:*$/sudoers: files ldap/g" /etc/nsswitch.conf
-fi
-
-mv /etc/ldap.conf /etc/ldap.conf.bak
 cat > /etc/ldap.conf << EOF
-tls_cacertdir /etc/openldap/certs
-pam_password md5
+base $DN
 uri ldaps://ldap.$SCHID.cloudtop.ph
-base dc=cloudtop,dc=ph
-binddn cn=auth,dc=cloudtop,dc=ph
+ldap_version 3
+binddn cn=auth,$DN
 bindpw $TMPPWD
+rootbinddn cn=admin,$DN
+pam_password md5
 ssl on
-referrals on
+tls_cacert /etc/ssl/certs/ldap.$SCHID.crt
 
-nss_base_passwd ou=users,ou=sysads,dc=cloudtop,dc=ph?one
-nss_base_shadow ou=users,ou=sysads,dc=cloudtop,dc=ph?one
-nss_base_group	ou=groups,ou=sysads,dc=cloudtop,dc=ph?one
-
-nss_base_passwd ${1}?one
-nss_base_shadow ${1}?one
-nss_base_group  ou=groups,ou=sysads,dc=cloudtop,dc=ph?one
-
-sudoers_base ou=sudoroles,ou=sysads,dc=cloudtop,dc=ph
-sudoers_debug 5
+nss_base_passwd        ou=users,$DN?one
+nss_base_shadow        ou=users,$DN?one
+nss_base_group         ou=roles,$DN?one
 EOF
 
-mv /etc/openldap/ldap.conf /etc/openldap/ldap.conf.bak
-ln -s  /etc/ldap.conf  /etc/openldap/ldap.conf
+mv /etc/ldap/ldap.conf /etc/ldap/ldap.conf.bak
+ln -s /etc/ldap.conf /etc/ldap/ldap.conf
 
-mv /etc/pam_ldap.conf /etc/pam_ldap.conf.bak
-ln -s  /etc/ldap.conf  /etc/pam_ldap.conf
-
-mv /etc/sudo-ldap.conf /etc/sudo-ldap.conf.bak
-ln -s  /etc/ldap.conf  /etc/sudo-ldap.conf
-
+echo $TMPPWD > /etc/ldap.secret
 
 timeout 5 openssl s_client -connect ldap.$SCHID.cloudtop.ph:636 -showcerts > /etc/ssl/certs/ldap.$SCHID.crt
+
 
 mv /etc/pam.d/common-auth /etc/pam.d/common-auth.bak 
 cat > /etc/pam.d/common-auth << EOF
@@ -97,8 +79,6 @@ session	optional			pam_ldap.so
 session optional                        pam_ck_connector.so nox11
 EOF
 
-
-mv /etc/pam.d/common-session-noninteractive /etc/pam.d/common-session-noninteractive.bak
 cat > /etc/pam.d/common-session-noninteractive << EOF
 session	[default=1]			pam_permit.so
 session	requisite			pam_deny.so
@@ -109,9 +89,8 @@ session required	pam_mkhomedir.so skel=/etc/skel/ umask=0077
 session	optional			pam_ldap.so 
 EOF
 
-nss_updatedb ldapif [ -z $(cat /etc/ssh/sshd_config | grep DenyGroups) ]; then
-echo "DenyGroups teachers students" >> /etc/ssh/sshd_config
-fi
+nss_updatedb ldap
+
 getent passwd
 
-
+#reboot
