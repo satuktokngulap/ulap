@@ -611,6 +611,39 @@ class PowerManagerTestSuite(unittest.TestCase):
 
         self.assertEqual(ipaddress, correctIP)
 
+    @patch("cloudtop.daemon.PowerManager.telnetlib")
+    @patch("cloudtop.daemon.PowerManager.Switch")
+    def testCheckSwitchState(self, switch, telnet):
+        #check state then match with internal state
+        switch.IPADDRESS = mock(return_value='10.225.3.210')
+        telnet.write = Mock()
+        switchMatchString = """
+            
+            RTCS v3.08.00 Telnet server            
+
+            Shell (build: Oct 26 2013)
+            Copyright (c) 2008 Freescale Semiconductor;
+            shell>
+            shell>
+        """
+
+        switchStateString = """
+            state is 8
+            SOC_state is 3
+            VB_state is 4
+            pdu logs is 203
+            pdu cnt is 48175
+            pdu char is [
+            ]
+            shell>
+        """
+
+        telnet.write.assert_has_call("state\n")
+        telnet.write.assert_has_call("exit\n")
+        ret = self.powerManager.getSwitchState()
+
+        self.assertEqual(ret, 8)
+
 
 #PowerManager Factory TestSuite
 class PowerManagerFactoryTestSuite(unittest.TestCase):
