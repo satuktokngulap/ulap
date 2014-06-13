@@ -587,7 +587,7 @@ class PowerManager(DatagramProtocol):
             params.append(hex(tcnum))
             params.append(Switch.ON)
 
-            #timer.sleep(2)
+            timer.sleep(2)
             d.addCallback(self.sendIPMICommand,params)
             d.addCallback(self._logExitValue)
         return d
