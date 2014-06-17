@@ -629,6 +629,25 @@ chkpower () {
 	return 0
 }
 
+# Function for checking if python-twisted was installed on the 
+# baremetal
+
+chktwisted () {
+
+	echo "Check if python twisted exists"
+
+	rpm -qa | grep  "python-twisted"
+	if [ $? -eq 0 ]; then 
+		echo "python twisted package installed"
+		echo_success
+		echo
+	else
+		echo "python-twisted not previously installed. Please install via yum"
+		echo_failure
+		echo
+	fi
+}
+
 # Function for checking BT Sync Components
 chkbt () {
 	#check config file
@@ -1236,6 +1255,10 @@ error $?
 
 # Check if internet connection is available 
 chkinternet
+error $?
+
+# Check python-twisted package
+chktwisted
 error $?
 
 # Cluster Configuration checks
