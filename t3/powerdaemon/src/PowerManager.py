@@ -317,6 +317,17 @@ class PowerManager(DatagramProtocol):
         d.addCallback(self.checkIfDisabled)
 
         return d
+
+    def lockResources(self, value=None):
+        logging.debug('locking resources via clusvcadm')
+        cmd = '/usr/sbin/clusvcadm'
+        params = []
+        params.append('-l')
+
+        d = utils.getProcessOutput(cmd, params)
+        #if lock fails, procedure should still proceed
+        return d
+
     
     def _powerOff(self, buffer):
         logging.debug("poweroff command executed")
@@ -350,8 +361,9 @@ class PowerManager(DatagramProtocol):
             #Todo: simplify this for Mgmt Vm based operation
             d = self.powerDownThinClients()
             d.addCallback(self.sendIPMIAck)
-	    d.addCallback(self.sendSyncTime)
+            d.addCallback(self.sendSyncTime)
             d.addCallback(self.sendWakeUpTime)
+            d.addCallback(self.lockResources)
             d.addCallback(self.shutdownManagementVM)
             d.addCallback(self.shutdownNFS)
             d.addCallback(self.checkWhichNode) 
