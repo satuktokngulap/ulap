@@ -306,6 +306,43 @@ class PowerManager(DatagramProtocol):
 
         return d
 
+    def shutdownLMS(self, value=None):
+        logging.debug('disabling LMS VM...')
+        cmd = '/usr/sbin/clusvcadm'
+        params = []
+        params.append('-d')
+        params.append('vm:b_vm_lms')
+
+        d = utils.getProcessOutput(cmd, params)
+        d.addCallback(self.checkIfDisabled)
+
+        return d
+
+    def shutdownRDPA(self, value=None):
+        logging.debug('disabling RDPA VM...')
+        cmd = '/usr/sbin/clusvcadm'
+        params = []
+        params.append('-d')
+        params.append('vm:a_vm_rdpa')
+
+        d = utils.getProcessOutput(cmd, params)
+        d.addCallback(self.checkIfDisabled)
+
+        return d
+
+    def shutdownRDPB(self, value=None):
+        logging.debug('disabling RDPB VM...')
+        cmd = '/usr/sbin/clusvcadm'
+        params = []
+        params.append('-d')
+        params.append('vm:b_vm_rdpb')
+
+        d = utils.getProcessOutput(cmd, params)
+        d.addCallback(self.checkIfDisabled)
+
+        return d
+
+
     def shutdownNFS(self, value=None):
         logging.debug('disabling NFS...')
         cmd = '/usr/sbin/clusvcadm'
@@ -366,6 +403,9 @@ class PowerManager(DatagramProtocol):
             d.addCallback(self.lockResources)
             d.addCallback(self.shutdownManagementVM)
             d.addCallback(self.shutdownNFS)
+            d.addCallback(self.shutdownLMS)
+            d.addCallback(self.shutdownRDPA)
+            d.addCallback(self.shutdownRDPB)
             d.addCallback(self.checkWhichNode) 
             d.addCallback(self.shutdownNeighbor)
             d.addCallback(self._powerOff)

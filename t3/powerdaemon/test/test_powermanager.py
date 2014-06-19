@@ -94,6 +94,10 @@ class PowerManagerTestSuite(unittest.TestCase):
         self.powerManager.sendWakeUpTime = Mock()
         self.powerManager.shutdownManagementVM = Mock()
         self.powerManager.shutdownNFS = Mock()
+        self.powerManager.lockResources = Mock()
+        self.powerManager.shutdownLMS = Mock()
+        self.powerManager.shutdownRDPA = Mock()
+        self.powerManager.shutdownRDPB = Mock()
 
         d = self.powerManager.startShutdown()
 
@@ -106,9 +110,12 @@ class PowerManagerTestSuite(unittest.TestCase):
         self.assertEqual(self.powerManager.powerDownThinClients().addCallback.call_args_list[3],call(self.powerManager.lockResources))
         self.assertEqual(self.powerManager.powerDownThinClients().addCallback.call_args_list[4],call(self.powerManager.shutdownManagementVM))
         self.assertEqual(self.powerManager.powerDownThinClients().addCallback.call_args_list[5],call(self.powerManager.shutdownNFS))
-        self.assertEqual(self.powerManager.powerDownThinClients().addCallback.call_args_list[6],call(self.powerManager.checkWhichNode))
-        self.assertEqual(self.powerManager.powerDownThinClients().addCallback.call_args_list[7],call(self.powerManager.shutdownNeighbor))
-        self.assertEqual(self.powerManager.powerDownThinClients().addCallback.call_args_list[8],call(self.powerManager._powerOff))
+        self.assertEqual(self.powerManager.powerDownThinClients().addCallback.call_args_list[6],call(self.powerManager.shutdownLMS))
+        self.assertEqual(self.powerManager.powerDownThinClients().addCallback.call_args_list[7],call(self.powerManager.shutdownRDPA))
+        self.assertEqual(self.powerManager.powerDownThinClients().addCallback.call_args_list[8],call(self.powerManager.shutdownRDPB))
+        self.assertEqual(self.powerManager.powerDownThinClients().addCallback.call_args_list[9],call(self.powerManager.checkWhichNode))
+        self.assertEqual(self.powerManager.powerDownThinClients().addCallback.call_args_list[10],call(self.powerManager.shutdownNeighbor))
+        self.assertEqual(self.powerManager.powerDownThinClients().addCallback.call_args_list[11],call(self.powerManager._powerOff))
 
     @patch('PowerManager.utils')
     def test_powerOff(self, utils):
@@ -133,6 +140,48 @@ class PowerManagerTestSuite(unittest.TestCase):
         self.powerManager.shutdownNeighbor(hostname)
 
         utils.getProcessOutput.assert_called_with(cmd, params)
+
+    @patch('PowerManager.utils')
+    def testShutdownLMS(self, utils):
+        cmd = '/usr/sbin/clusvcadm'
+        params = []
+        params.append('-d')
+        params.append('vm:b_vm_lms')
+        utils.getProcessOutput = Mock(return_value=defer.succeed(None))
+        self.powerManager.checkIfDisabled = Mock()
+
+        d = self.powerManager.shutdownLMS()
+
+        utils.getProcessOutput.assert_called_with(cmd, params)
+        #d.addCallback(self.assertEqual, None)
+
+    @patch('PowerManager.utils')
+    def testShutdownRDPA(self, utils):
+        cmd = '/usr/sbin/clusvcadm'
+        params = []
+        params.append('-d')
+        params.append('vm:a_vm_rdpa')
+        utils.getProcessOutput = Mock(return_value=defer.succeed(None))
+        self.powerManager.checkIfDisabled = Mock(return_value=defer.succeed(None))
+
+        d = self.powerManager.shutdownRDPA()
+
+        utils.getProcessOutput.assert_called_with(cmd, params)
+        d.addCallback(self.assertEqual, None)
+
+    @patch('PowerManager.utils')
+    def testShutdownRDPB(self, utils):
+        cmd = '/usr/sbin/clusvcadm'
+        params = []
+        params.append('-d')
+        params.append('vm:b_vm_rdpb')
+        utils.getProcessOutput = Mock(return_value=defer.succeed(None))
+        self.powerManager.checkIfDisabled = Mock(return_value=defer.succeed(None))
+
+        d = self.powerManager.shutdownRDPB()
+
+        utils.getProcessOutput.assert_called_with(cmd, params)
+        d.addCallback(self.assertEqual, None)
 
     @patch('PowerManager.utils')
     def testExecuteReducedPowerMode(self, utils):
@@ -475,6 +524,7 @@ class PowerManagerTestSuite(unittest.TestCase):
 
         self.powerManager.startProtocol()
         assert not task.deferLater().called
+
 
     @patch('PowerManager.utils')
     def testShutdownBothBaremetals(self, utils):
