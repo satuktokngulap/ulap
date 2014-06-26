@@ -607,7 +607,7 @@ class PowerManager(DatagramProtocol):
         d2 = task.deferLater(reactor, 15, self.powerUpThinClients)
 
         #slightly hack, time is arbitrary
-        d3 = task.deferLater(reactor, 20, self.sendSyncTime)
+        #d3 = task.deferLater(reactor, 20, self.sendSyncTime)
 
     def powerUpThinClients(self):
         logging.debug("sending IPMI command to power up ThinClients via Switch")
