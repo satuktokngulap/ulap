@@ -539,8 +539,8 @@ class PowerManager(DatagramProtocol):
         #check status of CPU
         logging.debug("processing datagram %s" % command)
         payload = None
-        if len(command) > 1:
-            logging.debug("datagram received from thinclient")
+        if len(command) > 2:
+            logging.debug("datagram received from thinclient with length %d" % len(command))
             if command[1] == 'x':
                 #command came from the thinclient, postprocess
                 payload = command[4:9]
@@ -549,7 +549,7 @@ class PowerManager(DatagramProtocol):
             logging.debug("datagram received from switch")
             command = command[0]
         if command == Command.SHUTDOWN_IMMEDIATE:
-            if NodeA.serverState == ServerState.ON or NodeB.serverState.ServerState.ON:
+            if NodeA.serverState == ServerState.ON or NodeB.serverState == ServerState.ON:
                 self.sendIPMIAck()
                 self.startShutdown()
             elif NodeA.serverState == ServerState.SHUTDOWN_IN_PROGRESS and\
