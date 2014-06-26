@@ -540,11 +540,13 @@ class PowerManager(DatagramProtocol):
         logging.debug("processing datagram %s" % command)
         payload = None
         if len(command) > 1:
+            logging.debug("datagram received from thinclient")
             if command[1] == 'x':
                 #command came from the thinclient, postprocess
                 payload = command[4:9]
                 command = command[2]
         else:
+            logging.debug("datagram received from switch")
             command = command[0]
         if command == Command.SHUTDOWN_IMMEDIATE:
             if NodeA.serverState == ServerState.ON or NodeB.serverState.ServerState.ON:
