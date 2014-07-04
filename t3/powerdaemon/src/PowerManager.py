@@ -151,6 +151,28 @@ class PowerManager(DatagramProtocol):
         d = self.sendIPMICommand(params)
         return d
 
+    def resetWakeup(self, value=None):
+        logging.info("resetting wakeup time on switch")
+        params = []
+        params.append('-H')
+        params.append(Switch.IPADDRESS)
+        params.append('-U')
+        params.append(Switch.USERNAME)
+        params.append('-P')
+        params.append(Switch.PASSWORD)
+        params.append('raw')
+        params.append('0x30')
+        params.append('0x38')
+
+        for n in range(6):
+            params.append('00')
+
+        d = self.sendIPMICommand(params)
+
+        return d
+
+
+
     def sendWakeUpTime(self, value=None):
         logging.debug("sending wake up time to switch")
 
@@ -414,6 +436,29 @@ class PowerManager(DatagramProtocol):
         #remove return?
         return returnValue
 
+    def emergencyShutdown(self):
+        logging.info("emegergency shutdown!")
+
+        NodeA.serverState = ServerState.SHUTDOWN_IN_PROGRESS
+        NodeB.serverState = ServerState.SHUTDOWN_IN_PROGRESS
+
+        d = self.powerDownThinClients()
+        d.addCallback(self.sendIPMIAck)
+        d.addCallback(self.sendSyncTime)
+        d.addCallback(self.resetWakeup)
+        d.addCallback(self.lockResources)
+        d.addCallback(self.shutdownManagementVM)
+        d.addCallback(self.shutdownNFS)
+        d.addCallback(self.shutdownLMS)
+        d.addCallback(self.shutdownRDPA)
+        d.addCallback(self.shutdownRDPB)
+        d.addCallback(self.checkWhichNode) 
+        d.addCallback(self.shutdownNeighbor)
+        d.addCallback(self._powerOff)
+        d.addCallback(self._logExitValue)
+
+        return d
+
     def shutdownNeighbor(self, hostname):
         logging.debug("shutting down neighbor  of %s" % hostname)
         node = hostname.split('.')[0]
@@ -551,7 +596,7 @@ class PowerManager(DatagramProtocol):
         if command == Command.SHUTDOWN_IMMEDIATE:
             if NodeA.serverState == ServerState.ON or NodeB.serverState == ServerState.ON:
                 self.sendIPMIAck()
-                self.startShutdown()
+                self.emergencyShutdown()
             elif NodeA.serverState == ServerState.SHUTDOWN_IN_PROGRESS and\
                 NodeB.serverState == ServerState.SHUTDOWN_IN_PROGRESS:
                 pass

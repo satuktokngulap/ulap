@@ -70,6 +70,8 @@ class PowerManagerTestSuite(unittest.TestCase):
 
         assert self.powerManager.startShutdown.called
 
+    testProcessCommand_ShutdownFromOn.skip ='deprecated'
+
     def testProcessCommand_ReducedPowerMode(self):
         cmd = Command.REDUCE_POWER
         self.powerManager.executeReducedPowerMode = Mock()
@@ -98,6 +100,7 @@ class PowerManagerTestSuite(unittest.TestCase):
         self.powerManager.shutdownLMS = Mock()
         self.powerManager.shutdownRDPA = Mock()
         self.powerManager.shutdownRDPB = Mock()
+        self.powerManager._powerOff = Mock()
 
         d = self.powerManager.startShutdown()
 
@@ -116,6 +119,60 @@ class PowerManagerTestSuite(unittest.TestCase):
         self.assertEqual(self.powerManager.powerDownThinClients().addCallback.call_args_list[9],call(self.powerManager.checkWhichNode))
         self.assertEqual(self.powerManager.powerDownThinClients().addCallback.call_args_list[10],call(self.powerManager.shutdownNeighbor))
         self.assertEqual(self.powerManager.powerDownThinClients().addCallback.call_args_list[11],call(self.powerManager._powerOff))
+
+
+    def testEmergencyShutdown(self):
+        self.powerManager.powerDownThinClients = Mock()
+        self.powerManager.checkWhichNode = Mock()
+        self.powerManager.shutdownNeighbor = Mock()
+        self.powerManager._logExitValue = Mock()
+        self.powerManager.sendIPMIAck = Mock()
+        self.powerManager.shutdownManagementVM = Mock()
+        self.powerManager.shutdownNFS = Mock()
+        self.powerManager.lockResources = Mock()
+        self.powerManager.shutdownLMS = Mock()
+        self.powerManager.shutdownRDPA = Mock()
+        self.powerManager.shutdownRDPB = Mock()
+        self.powerManager.sendSyncTime = Mock()
+        self.powerManager.resetWakeup = Mock()
+        self.powerManager._powerOff = Mock()
+
+
+        d = self.powerManager.emergencyShutdown()
+
+        assert self.powerManager.powerDownThinClients.called
+        self.assertEqual(self.powerManager.powerDownThinClients().addCallback.call_args_list[0],call(self.powerManager.sendIPMIAck))
+        self.assertEqual(self.powerManager.powerDownThinClients().addCallback.call_args_list[1],call(self.powerManager.sendSyncTime))
+        self.assertEqual(self.powerManager.powerDownThinClients().addCallback.call_args_list[2],call(self.powerManager.resetWakeup))
+        self.assertEqual(self.powerManager.powerDownThinClients().addCallback.call_args_list[3],call(self.powerManager.lockResources))
+        self.assertEqual(self.powerManager.powerDownThinClients().addCallback.call_args_list[4],call(self.powerManager.shutdownManagementVM))
+        self.assertEqual(self.powerManager.powerDownThinClients().addCallback.call_args_list[5],call(self.powerManager.shutdownNFS))
+        self.assertEqual(self.powerManager.powerDownThinClients().addCallback.call_args_list[6],call(self.powerManager.shutdownLMS))
+        self.assertEqual(self.powerManager.powerDownThinClients().addCallback.call_args_list[7],call(self.powerManager.shutdownRDPA))
+        self.assertEqual(self.powerManager.powerDownThinClients().addCallback.call_args_list[8],call(self.powerManager.shutdownRDPB))
+        self.assertEqual(self.powerManager.powerDownThinClients().addCallback.call_args_list[9],call(self.powerManager.checkWhichNode))
+        self.assertEqual(self.powerManager.powerDownThinClients().addCallback.call_args_list[10],call(self.powerManager.shutdownNeighbor))
+        self.assertEqual(self.powerManager.powerDownThinClients().addCallback.call_args_list[11],call(self.powerManager._powerOff))
+
+    def testResetWakeup(self):
+        self.powerManager.sendIPMICommand = Mock(return_value=defer.succeed(None))
+        params = []
+        params.append('-H')
+        params.append(Switch.IPADDRESS)
+        params.append('-U')
+        params.append(Switch.USERNAME)
+        params.append('-P')
+        params.append(Switch.PASSWORD)
+        params.append('raw')
+        params.append('0x30')
+        params.append('0x38')
+
+        for n in range(6):
+            params.append('00')
+
+        d = self.powerManager.resetWakeup()
+
+        self.powerManager.sendIPMICommand.assert_called_with(params)
 
     @patch('PowerManager.utils')
     def test_powerOff(self, utils):
@@ -409,6 +466,18 @@ class PowerManagerTestSuite(unittest.TestCase):
         self.powerManager.schedulePowerUp()
 
         task.deferLater.assert_called_with(reactor, 3600, self.powerManager.sendIPMICommand, params)
+
+    def testReceivedEmergencyShutdown(self):
+        command = Command.SHUTDOWN_IMMEDIATE
+        self.powerManager.emergencyShutdown = Mock()
+        self.powerManager.sendIPMIAck = Mock()
+        NodeA.serverstate = ServerState.ON
+        NodeB.serverstate = ServerState.ON
+
+        self.powerManager.processCommand(command)
+
+        assert self.powerManager.sendIPMIAck.called
+        assert self.powerManager.emergencyShutdown.called
 
     def testReceivedShutdownCancelCommand(self):
         cmd = Command.SHUTDOWN_CANCEL
