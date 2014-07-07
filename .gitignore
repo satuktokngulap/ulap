@@ -4,3 +4,11 @@
 t3/powerdaemon/src/__init__.py
 
 t3/powerdaemon/test/__init__.py
+
+t3/powerdaemon/_trial_temp/_trial_marker
+
+t3/powerdaemon/_trial_temp/test.log
+
+t3/powerdaemon/src/_trial_temp/_trial_marker
+
+t3/powerdaemon/src/_trial_temp/test.log
