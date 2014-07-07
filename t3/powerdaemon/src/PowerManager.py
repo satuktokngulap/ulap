@@ -651,7 +651,7 @@ class PowerManager(DatagramProtocol):
             logging.debug("Scheduling shutdown")
             d = task.deferLater(reactor, self._timeFromShutdown(), self.normalShutdown)
         #hack
-        d2 = task.deferLater(reactor, 15, self.powerUpThinClients)
+        #d2 = task.deferLater(reactor, 15, self.powerUpThinClients)
 
         #slightly hack, time is arbitrary
         #d3 = task.deferLater(reactor, 20, self.sendSyncTime)
@@ -711,8 +711,8 @@ class PowerManager(DatagramProtocol):
 
     def getNextDayDate(self):
         oneDay = timedelta(days=1)
-        #tomorrow = date.today() + oneDay
-        tomorrow = date.today()
+        tomorrow = date.today() + oneDay
+        #tomorrow = date.today()
         return date(tomorrow.year, tomorrow.month, tomorrow.day)
 
     def _timeFromPowerUp(self):

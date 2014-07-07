@@ -1,0 +1,6 @@
+
+*.pyc
+
+t3/powerdaemon/src/__init__.py
+
+t3/powerdaemon/test/__init__.py
