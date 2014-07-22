@@ -12,7 +12,7 @@
 
 SCHID=$1
 SCHNAME=$2
-SCHMUN=$3
+SCHDIV=$3
 SCHREG=$4
 TMPPWD=$5
 
@@ -111,6 +111,16 @@ olcPPolicyHashCleartext: TRUE
 olcPPolicyUseLockout: FALSE
 olcPPolicyDefault: cn=default,$DN
 
+dn: olcOverlay=unique,olcDatabase={2}bdb,cn=config
+olcOverlay: unique
+objectClass: olcOverlayConfig
+objectClass: olcUniqueConfig
+olcUniqueAttribute: employeeNumber
+olcUniqueAttribute: uid
+#olcUniqueAttribute: mail
+#olcUniqueAttribute: commonName
+
+dn: olcOverlay=unique,olcDatabase={3}bdb,cn=config
 olcOverlay: unique
 objectClass: olcOverlayConfig
 objectClass: olcUniqueConfig

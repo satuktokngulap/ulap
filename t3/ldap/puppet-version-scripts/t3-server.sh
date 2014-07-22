@@ -66,12 +66,12 @@ dn: olcDatabase={2}bdb
 objectClass: olcDatabaseConfig
 objectClass: olcBdbConfig
 olcDatabase: {2}bdb
-olcSuffix: o=999 NECTest,st=QC,l=NCR,dc=cloudtop,dc=ph
+olcSuffix: $DN
 olcAddContentAcl: FALSE
 olcLastMod: TRUE
 olcMaxDerefDepth: 15
 olcReadOnly: FALSE
-olcRootDN: cn=admin,o=999 NECTest,st=QC,l=NCR,dc=cloudtop,dc=ph
+olcRootDN: cn=admin,$DN
 olcRootPW: $HPWD
 olcSyncUseSubentry: FALSE
 olcMonitoring: TRUE
@@ -101,6 +101,8 @@ olcDbSearchStack: 16
 olcDbShmKey: 0
 olcDbCacheFree: 1
 olcDbDNcacheSize: 0
+olcDbConfig: set_lg_bsize 10485760
+olcDbConfig: set_flags DB_LOG_AUTO_REMOVE
 structuralObjectClass: olcBdbConfig
 olcAccess: {0}to attrs=employeeType by dn="cn=auth,$DN" read by self read by * none
 olcAccess: {1}to attrs=userPassword,shadowLastChange by self write by anonymou
@@ -150,6 +152,8 @@ olcDbSearchStack: 16
 olcDbShmKey: 0
 olcDbCacheFree: 1
 olcDbDNcacheSize: 0
+olcDbConfig: set_lg_bsize 10485760
+olcDbConfig: set_flags DB_LOG_AUTO_REMOVE
 structuralObjectClass: olcBdbConfig
 olcAccess: {0}to attrs=userPassword,shadowLastChange by self read by anonymous
   auth by * none
@@ -157,3 +161,5 @@ olcAccess: {1}to * by dn="cn=auth,dc=cloudtop,dc=ph" read by self read by * no
  ne
 olcAccess: {2}to dn.base="$DN" by dn="cn=auth,$DN" read by dn="cn=dataadmin,$DN" write
 EOF
+
+chown -R ldap:ldap /etc/openldap/slapd.d/

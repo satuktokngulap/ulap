@@ -6,9 +6,12 @@ TMPPWD=$3
 
 if [ $# -ne 3 ]; then
 	echo "The number of arguments passed is not equal to 3."
+	exit
 fi
 
-DEBIAN_FRONTEND=noninteractive apt-get install -y libnss-ldap nscd nss-updatedb libnss-db libpam-ccreds nss-pam-ldapd
+set -e
+
+DEBIAN_FRONTEND=noninteractive apt-get install -y libnss-ldap libpam-ldap nscd nss-updatedb libnss-db libpam-ccreds sudo-ldap
 
 cat > /etc/cron.hourly/nssupdate.sh << EOF
 #!/bin/sh
@@ -31,7 +34,7 @@ fi
 
 mv /etc/ldap.conf /etc/ldap.conf.bak
 cat > /etc/ldap.conf << EOF
-tls_cacertdir /etc/openldap/certs
+tls_cacert /etc/ssl/certs/ldap.$SCHID.crt
 pam_password md5
 uri ldaps://ldap.$SCHID.cloudtop.ph
 base dc=cloudtop,dc=ph
@@ -52,8 +55,8 @@ sudoers_base ou=sudoroles,ou=sysads,dc=cloudtop,dc=ph
 sudoers_debug 5
 EOF
 
-mv /etc/openldap/ldap.conf /etc/openldap/ldap.conf.bak
-ln -s  /etc/ldap.conf  /etc/openldap/ldap.conf
+mv /etc/ldap/ldap.conf /etc/ldap/ldap.conf.bak
+ln -s  /etc/ldap.conf  /etc/ldap/ldap.conf
 
 mv /etc/pam_ldap.conf /etc/pam_ldap.conf.bak
 ln -s  /etc/ldap.conf  /etc/pam_ldap.conf
@@ -109,9 +112,10 @@ session required	pam_mkhomedir.so skel=/etc/skel/ umask=0077
 session	optional			pam_ldap.so 
 EOF
 
-nss_updatedb ldapif [ -z $(cat /etc/ssh/sshd_config | grep DenyGroups) ]; then
-echo "DenyGroups teachers students" >> /etc/ssh/sshd_config
-fi
+nss_updatedb ldap
+#if [ -z $(cat /etc/ssh/sshd_config | grep DenyGroups) ]; then
+#echo "DenyGroups teachers students" >> /etc/ssh/sshd_config
+#fi
 getent passwd
 
 
