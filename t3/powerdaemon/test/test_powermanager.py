@@ -539,7 +539,7 @@ class PowerManagerTestSuite(unittest.TestCase):
         self.powerManager.startShutdown()
 
         self.assertEqual(NodeA.shuttingDownCancelled, False)
-        self.assertEqual(NodeB.shuttingDownCancelled, False)
+        self.assertEqual(NodeB.shuttingDownCancelled, False)  
 
     def testACRestoredCommandReceived_LowPower(self):
         cmd = Command.AC_RESTORED

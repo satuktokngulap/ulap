@@ -364,7 +364,6 @@ class PowerManager(DatagramProtocol):
 
         return d
 
-
     def shutdownNFS(self, value=None):
         logging.debug('disabling NFS...')
         cmd = '/usr/sbin/clusvcadm'
@@ -386,7 +385,6 @@ class PowerManager(DatagramProtocol):
         d = utils.getProcessOutput(cmd, params)
         #if lock fails, procedure should still proceed
         return d
-
     
     def _powerOff(self, buffer):
         logging.debug("poweroff command executed")
@@ -650,6 +648,8 @@ class PowerManager(DatagramProtocol):
         if Conf.DAILYSHUTDOWN:
             logging.debug("Scheduling shutdown")
             d = task.deferLater(reactor, self._timeFromShutdown(), self.normalShutdown)
+        else:
+            logging.debug("Daily shutdown schedule disabled")
         #hack
         #d2 = task.deferLater(reactor, 15, self.powerUpThinClients)
 
@@ -738,6 +738,9 @@ class PowerManager(DatagramProtocol):
     def updateTCDatabase(self):
         
         IPAddressFinder.update()
+
+    def powerOffThinClient(self):
+        pass
         
 
 #power manager factory class
@@ -754,6 +757,7 @@ def SIGTERMHandler():
     exit()
 
 #main function
+#transfer to executable?
 if __name__ == "__main__":
     signal.signal(signal.SIGTERM, SIGTERMHandler)
     fillAllDefaults("/etc/power_mgmt.cfg")

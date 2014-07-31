@@ -18,6 +18,7 @@ def _fillConfigDefaults(configfile):
 	Conf.SHUTDOWNMINUTE = int(config.get('defaults', 'shutdownminute'))
 	Conf.WAKEUPHOUR = int(config.get('defaults', 'wakeuphour'))
 	Conf.WAKEUPMINUTE = int(config.get('defaults', 'wakeupminute'))
+	Conf.DAILYSHUTDOWN = bool(config.get('defaults', 'dailyshutdown'))
 
 def _fillNodeDefaults(configfile):
 	config = ConfigParser.ConfigParser()
@@ -32,7 +33,7 @@ def _fillNodeDefaults(configfile):
 	NodeB.IPMIHOST = config.get('nodeB', 'ipmihost')
 	NodeB.IPMIUSER = config.get('nodeB', 'ipmiuser')
 	NodeB.IPMIPASSWORD = config.get('nodeB', 'ipmipassword')
-
+	
 def _fillThinclientDefaults(configfile):
 	config = ConfigParser.ConfigParser()
 	config.read(configfile)
