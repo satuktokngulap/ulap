@@ -1,0 +1,76 @@
+#init.d script
+
+### BEGIN INIT INFO
+# Provides:          power_daemon
+# Required-Start:    all
+# Required-Stop:     postgresql networking
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: power management daemon
+# Description:       power management daemon
+#                    This provides example about how to
+#                    write a Init script.
+### END INIT INFO
+
+
+#!/bin/bash
+#
+# /etc/rc.d/init.d/power management
+#
+# <description of the *service*>
+# <any general comments about this init script>
+
+# Source function library.
+. /etc/rc.d/init.d/functions
+
+PIDFILE=/var/run/powerdaemon.pid
+EXEC=/usr/sbin/powerdaemon
+LOCKFILE=/var/lock/subsys/powerdaemon
+SERVICE=python\ /usr/scripts/powerdaemon/src/PowerManager.py
+
+start () {
+	echo
+}
+
+stop () {
+	echo
+}
+
+case "$1" in
+	start)
+		echo -n "Starting power management services: " 
+		if [ -e $LOCKFILE ]
+		then
+			echo "service could be running already!"
+			exit 2;
+		else
+			daemon $EXEC
+		fi
+	;;
+	stop)
+		echo -n "Shutting down power management services: "
+		killproc $SERVICE
+		rm -f $LOCKFILE
+		rm -f $PIDFILE
+	;;
+	status)
+		status $SERVICE
+	;;
+	restart | reload)
+		$0 stop; 
+		$0 start;
+
+	;;
+	probe)
+		#<optional. If it exists, then it should determine whether
+		#or not the service needs to be restarted or reloaded (or
+		#whatever) in order to activate any changes in the #configuration
+		#scripts. It should print out a list of commands to give to
+		#0; see the description under the probe tag below.>
+		echo
+	;;
+	*)
+		echo "Usage: power management {start|stop|status|reload|restart|probe]"
+		exit 1
+	;;
+esac
