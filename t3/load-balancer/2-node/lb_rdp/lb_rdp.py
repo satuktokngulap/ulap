@@ -41,6 +41,7 @@ def discount_dups(matches, client_ip):
         tc_ip = tc_ip[4].split(':')[0]
         if tc_ip not in tc_ip_addresses:
             tc_ip_addresses.append(tc_ip)
+        print "[DEBUG] client"+str(client_ip) +" vs "+str(tc_ip)
         if client_ip == tc_ip:
             has_dup += 1
     return len(tc_ip_addresses), has_dup
@@ -48,9 +49,9 @@ def discount_dups(matches, client_ip):
 def count_xrdp_connections(data_string, client_ip):
     
     subnet=get_ip_address(INTERFACE).rpartition(".")[0]+"."
-    #xrdp_port=command_line_call_and_return("grep -m 1 '^port' /etc/xrdp/xrdp.ini").partition("=")[2].rstrip()
-    xrdp_port="3389"
+    xrdp_port=command_line_call_and_return("grep -m 1 '^port' /etc/xrdp/xrdp.ini").partition("=")[2].rstrip()
     pattern_string = 'tcp[ 0-9]+%s[0-9]+:%s[ 0-9]+%s[0-9]+:[ 0-9]+ESTABLISHED[ 0-9/]+xrdp' % (subnet,xrdp_port,subnet)
+    pattern_string = 'tcp[ 0-9]+%s[0-9]+:3389[ 0-9]+%s[0-9]+:[ 0-9]+ESTABLISHED[ 0-9/]+xrdp' % (subnet,subnet)
     
     p = re.compile(pattern_string)
     matches = p.findall(data_string)

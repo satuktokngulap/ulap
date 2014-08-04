@@ -1,0 +1,4 @@
+Copy upstart script 'lb_mgmt.conf' to /etc/init
+Issue command 'initctl list' and see if lb_mgmt is on the list
+If status is 'stop/wating' issue command 'start lb_mgmt'
+Issue command 'status lb_mgmt' and the process 'lb_mgmt' should be running

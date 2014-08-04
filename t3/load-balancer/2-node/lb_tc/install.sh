@@ -11,12 +11,12 @@ function die() {
 #run script as root!
 [ "$(id -u)" -eq "0" ] || die "Run as root!"
 
-[ "$#" -eq 3 ] || die "Requires 3 arguments (LDAP VM IP address, RDP A VM IP address, RDP B VM IP address), $# arguments provided"
-
-IP_PATTERN='^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$'
-echo $1 | grep -E -q $IP_PATTERN || die "Invalid IP address for 1st argument, <$1> provided"
-echo $2 | grep -E -q $IP_PATTERN || die "Invalid IP address for 1st argument, <$2> provided"
-echo $3 | grep -E -q $IP_PATTERN || die "Invalid IP address for 2nd argument, <$3> provided"
+#~ [ "$#" -eq 3 ] || die "Requires 3 arguments (LDAP VM IP address, RDP A VM IP address, RDP B VM IP address), $# arguments provided"
+#~ 
+#~ IP_PATTERN='^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$'
+#~ echo $1 | grep -E -q $IP_PATTERN || die "Invalid IP address for 1st argument, <$1> provided"
+#~ echo $2 | grep -E -q $IP_PATTERN || die "Invalid IP address for 1st argument, <$2> provided"
+#~ echo $3 | grep -E -q $IP_PATTERN || die "Invalid IP address for 2nd argument, <$3> provided"
 
 #check script folder
 pushd `dirname $0` > /dev/null
@@ -38,17 +38,10 @@ INSTALL_FOLDER="/opt/lb_tc"
 echo "Installing in: '$INSTALL_FOLDER'"
 
 echo "Copying to install folder..."
-#copy executable, config, and icon to target folder
+#copy scripts and config to target folder
 chmod +x $SCRIPT_FOLDER/src/*
 cp $SCRIPT_FOLDER/src/* $INSTALL_FOLDER/
 #chmod +x $INSTALL_FOLDER/client_starter.sh
-
-#echo "Copying Desktop shortcuts..."
-
-##  OR copy executing shellscript to Desktop
-#cp $SCRIPT_FOLDER/src/start_RDP.sh ~/Desktop/
-#chmod +x ~/Desktop/start_RDP.sh
-#chown $SUDO_USER:$SUDO_USER ~/Desktop/start_RDP.sh
 
 echo "Appending to /etc/hosts..."
 #append rdpa.tc.net and rdpb.tc.net to hosts file
