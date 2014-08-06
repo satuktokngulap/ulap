@@ -71,9 +71,42 @@ class NodeB():
     IPMIHOST = '10.18.221.112'
     IPMIUSER = 'ADMIN'
     IPMIPASS = 'admin@123'
+
+class MgmtVM():
+    IPADDRESS = '10.18.221.21'
     
 
+#refactored to be a instantiated
 class ThinClient():
+    #class variables
     DEFAULT_ADDR = ('172.16.1.5', 8880)
     SERVERA_ADDR = ('172.16.1.5', 8880)
     SERVERB_ADDR = ('172.16.1.6', 8880)
+
+    def __init__(self, IDtouple):
+        pass
+
+    def getIPAddress(self):
+        return self.ipaddress
+
+    def setIPAddress(self, IP):
+        self.ipaddress = IP
+
+    def getMacAddress(self):
+        return self.macAddress
+
+    #mac address is unique for ThinClient
+    def setMacAddress(self, Mac):
+        self.macAddress = Mac
+
+    def setSessionID(sef, Id):
+        self.sessionID = Id
+
+    def getSessionID(self):
+        return self.sessionID
+
+    def setSwitchPoEPort(self, Port):
+        self.port = Port
+
+    def getSwitchPoEPort(self):
+        return self.port
