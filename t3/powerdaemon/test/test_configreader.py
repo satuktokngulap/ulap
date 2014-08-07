@@ -2,7 +2,8 @@ from mock import Mock, call, patch
 from twisted.internet import defer, reactor
 from twisted.trial import unittest
 
-from PowerManager import NodeA, NodeB, Conf, Switch, ThinClient
+from powermodels import NodeA, NodeB, Conf, Switch, ThinClient
+from powermodels import MgmtVM
 import configreader
 
 # from cloudtop.config.test import TEST
@@ -16,6 +17,7 @@ class ConfigreaderTestSuite(unittest.TestCase):
         switch = {}
         nodeA = {}
         nodeB = {}
+        mgmt = {}
         thinclient = {}
         defaults = {}
         self.configset = {}
@@ -35,6 +37,8 @@ class ConfigreaderTestSuite(unittest.TestCase):
         nodeB['ipmiuser'] = 'ADMIN'
         nodeB['ipmipassword'] = 'Admin@123'
 
+        mgmt['ip'] = '10.225.3.146'
+
         thinclient['default_addr'] = ('173.16.1.5', 8880)
         thinclient['serverA_addr'] = ('173.16.1.5', 8880)
         thinclient['serverB_addr'] = ('173.16.1.6', 8880)
@@ -49,6 +53,7 @@ class ConfigreaderTestSuite(unittest.TestCase):
         self.configset['nodeA'] = nodeA
         self.configset['nodeB'] = nodeB
         self.configset['thinclient'] = thinclient
+        self.configset['mgmt'] = mgmt
         self.configset['defaults'] = defaults
 
     def tearDown(self):
@@ -85,7 +90,13 @@ class ConfigreaderTestSuite(unittest.TestCase):
         self.assertEqual(NodeB.IPMIHOST, self.configset['nodeB']['ipmihost'])
         self.assertEqual(NodeB.IPMIUSER, self.configset['nodeB']['ipmiuser'])
         self.assertEqual(NodeB.IPMIPASSWORD, self.configset['nodeB']['ipmipassword'])
-        
+   
+    def testFillMgmtDefaults(self):
+        configreader._fillNodeDefaults(self.testFile)
+
+        self.assertEqual(MgmtVM.IPADDRESS, self.configset['mgmt']['ip'])
+
+
     def testFillThinclientDefaults(self):
         configreader._fillThinclientDefaults(self.testFile)
 

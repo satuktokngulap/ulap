@@ -1,5 +1,6 @@
 import ConfigParser
 from powermodels import NodeA, NodeB, Conf, Switch, ThinClient
+from powermodels import MgmtVM
 
 def _fillSwitchDefaults(configfile):
 	config = ConfigParser.ConfigParser()
@@ -33,6 +34,12 @@ def _fillNodeDefaults(configfile):
 	NodeB.IPMIHOST = config.get('nodeB', 'ipmihost')
 	NodeB.IPMIUSER = config.get('nodeB', 'ipmiuser')
 	NodeB.IPMIPASSWORD = config.get('nodeB', 'ipmipassword')
+
+def _fillMgmtDefaults(configfile):
+	config = ConfigParser.ConfigParser()
+	config.read(configfile)
+
+	MgmtVM.IPADDRESS = config.get('mgmt', 'ip')
 	
 def _fillThinclientDefaults(configfile):
 	config = ConfigParser.ConfigParser()
@@ -46,4 +53,5 @@ def fillAllDefaults(configfile):
 	_fillSwitchDefaults(configfile)
 	_fillNodeDefaults(configfile)
 	_fillConfigDefaults(configfile)
+	_fillMgmtDefaults(configfile)
 	_fillThinclientDefaults(configfile)
