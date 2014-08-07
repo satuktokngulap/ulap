@@ -24,13 +24,16 @@ class MapperTestsuite(unittest.TestCase):
 	def testUpdateMap(self):
 		pass
 
+	def testInializeMap(self):
+		pass
+
 	#top level function during initial bootup
 	#creates ThinClient objects.
 	@patch('mapper.ThinClient')
 	def testAddNewThinClient(self, thinclient):
 		mapper.Mapper.getDHCPDetails = Mock(return_value = ('10.225.1.1', '40:d8:55:0c:11:0a'))
 
-		mapper.Mapper.initializeMap()
+		mapper.Mapper.addNewThinClient()
 
 		#instantiate thinclient object
 		thinclient.assert_called_with(('10.225.1.1','40:d8:55:0c:11:0a'))
