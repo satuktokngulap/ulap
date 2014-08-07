@@ -8,7 +8,6 @@
 
 
 
-
 import logging, os, signal, re
 import time as timer
 import ConfigParser
@@ -24,6 +23,7 @@ from datetime import datetime, time, date, timedelta
 from ipaddressfinder import IPAddressFinder
 from powermodels import Conf, NodeA, NodeB, Switch, ThinClient, Power, MasterTC
 from powermodels import ServerState, PowerState, SwitchState
+from mapper import Mapper
 
 #change on deployment
 from configreader import fillAllDefaults
@@ -74,6 +74,7 @@ class Command():
     SHUTDOWN_REQUEST = '\x08'
     REDUCE_POWER = '\x03'
     POSTPONE = '1'
+    POENOTIF = '\x0B'
 
     #from RDP
     UPDATE = '\x0A'
@@ -90,6 +91,9 @@ class PowerManager(DatagramProtocol):
     def __init__(self):
         self.shutdownDelay = Conf.DEFAULTSCHEDULEDSHUTDOWNWAITTIME
         self.postponeToggle = False
+        self.waitingForPoEConfirm = False
+        self.PoECounter = 0
+        self.readyPorts = 16 #default. changed at startup
 
     def _logExitValue(self, exitValue):
         logging.info("exit value of last command:%s" % exitValue)
@@ -172,7 +176,6 @@ class PowerManager(DatagramProtocol):
         return d
 
 
-
     def sendWakeUpTime(self, value=None):
         logging.debug("sending wake up time to switch")
 
@@ -189,14 +192,18 @@ class PowerManager(DatagramProtocol):
 
         datetom = self.getNextDayDate()
         #format date
-        if datetom.month <= 9:
-            params.append('0'+str(datetom.month))
-        else:
-            params.append(str(datetom.month))
-        if datetom.day <= 9:
-            params.append('0'+str(datetom.day))
-        else:
-            params.append(str(datetom.day))
+        #if datetom.month <= 9:
+        #    params.append('0'+str(datetom.month))
+        #else:
+        #    params.append(str(datetom.month))
+        #if datetom.day <= 9:
+        #    params.append('0'+str(datetom.day))
+        #else:
+        #    params.append(str(datetom.day))
+
+        params.append('0'+str(datetom.month))
+        params.append(str(datetom.day))
+
 
         year1 = str(datetom.year)[0:2]
         year2 = str(datetom.year)[2:4]
@@ -204,14 +211,17 @@ class PowerManager(DatagramProtocol):
         params.append(year2)
 
         #format time
-        if Conf.WAKEUPHOUR <= 9:
-            params.append('0'+str(Conf.WAKEUPHOUR))
-        else:
-            params.append(str(Conf.WAKEUPHOUR))
-        if Conf.WAKEUPMINUTE <= 9:
-            params.append('0'+str(Conf.WAKEUPMINUTE))
-        else:
-            params.append(str(Conf.WAKEUPMINUTE))
+        #if Conf.WAKEUPHOUR <= 9:
+        #    params.append('0'+str(Conf.WAKEUPHOUR))
+        #else:
+        #    params.append(str(Conf.WAKEUPHOUR))
+        #if Conf.WAKEUPMINUTE <= 9:
+        #    params.append('0'+str(Conf.WAKEUPMINUTE))
+        #else:
+        #    params.append(str(Conf.WAKEUPMINUTE))
+
+        params.append(str(Conf.WAKEUPHOUR))
+        params.append(str(Conf.WAKEUPMINUTE))
 
         d = self.sendIPMICommand(params)
         return d
@@ -233,14 +243,16 @@ class PowerManager(DatagramProtocol):
         currentTime = self.getCurrentTime()
 
         #format date
-        if currentTime.month <= 9:
-            params.append('0'+str(currentTime.month))
-        else:
-            params.append(str(currentTime.month))
-        if currentTime.day <= 9:
-            params.append('0'+str(currentTime.day))
-        else:
-            params.append(str(currentTime.day))
+        # if currentTime.month <= 9:
+        #     params.append('0'+str(currentTime.month))
+        # else:
+        #     params.append(str(currentTime.month))
+        # if currentTime.day <= 9:
+        #     params.append('0'+str(currentTime.day))
+        # else:
+        #     params.append(str(currentTime.day))
+        params.append(str(currentTime.month))
+        params.append(str(currentTime.day))
 
         year1 = str(currentTime.year)[0:2]
         year2 = str(currentTime.year)[2:4]
@@ -248,16 +260,19 @@ class PowerManager(DatagramProtocol):
         params.append(year2)
 
         #format time
-        if currentTime.hour <= 9:
-            params.append('0'+str(currentTime.hour))
-        else:
-            params.append(str(currentTime.hour))
-        if currentTime.minute <= 9:
-            params.append('0'+str(currentTime.minute))
-        else:
-            params.append(str(currentTime.minute))
+        # if currentTime.hour <= 9:
+        #     params.append('0'+str(currentTime.hour))
+        # else:
+        #     params.append(str(currentTime.hour))
+        # if currentTime.minute <= 9:
+        #     params.append('0'+str(currentTime.minute))
+        # else:
+        #     params.append(str(currentTime.minute))
 
-        d = self.sendIPMICommand(params)
+        # d = self.sendIPMICommand(params)
+        params.append(str(currentTime.hour))
+        params.append(str(currentTime.minute))
+
         return d
 
     #for triggering power cycle
@@ -419,6 +434,7 @@ class PowerManager(DatagramProtocol):
             d = self.powerDownThinClients()
             d.addCallback(self.sendIPMIAck)
             d.addCallback(self.sendSyncTime)
+            #TODO: capture error on ipmi
             d.addCallback(self.sendWakeUpTime)
             d.addCallback(self.lockResources)
             d.addCallback(self.shutdownManagementVM)
@@ -578,19 +594,20 @@ class PowerManager(DatagramProtocol):
     def grantShutdownRequest(self):
         pass        
 
-    def processCommand(self, command):
+    def processCommand(self, msg):
         #check status of CPU
-        logging.debug("processing datagram %s" % command)
+        logging.debug("processing datagram %s" % msg)
         payload = None
-        if len(command) > 2:
-            logging.debug("datagram received from thinclient with length %d" % len(command))
-            if command[1] == 'x':
+        if len(msg) > 4:
+            logging.debug("datagram received from thinclient with length %d" % len(msg))
+            if msg[1] == 'x':
                 #command came from the thinclient, postprocess
-                payload = command[4:9]
-                command = command[2]
+                payload = msg[4:9]
+                command = msg[2]
         else:
             logging.debug("datagram received from switch")
-            command = command[0]
+            if len(msg) > 1: payload = msg[1]
+            command = msg[0]
         if command == Command.SHUTDOWN_IMMEDIATE:
             if NodeA.serverState == ServerState.ON or NodeB.serverState == ServerState.ON:
                 self.sendIPMIAck()
@@ -642,6 +659,20 @@ class PowerManager(DatagramProtocol):
                 pass
             else:
                 self.normalShutdown() 
+        elif command == Command.POENOTIF:
+            self.waitingForPoEConfirm = False
+            self.initializeThinClient()
+
+
+    def initializeThinClient(self):
+        self.PoECounter = self.PoECounter +1
+        self.waitingForPoEConfirm = True
+
+        Mapper.addNewThinClient()
+
+        d = self.powerUpPoE(self.PoECounter)
+
+        return d
 
     def startProtocol(self):
         self.address = ThinClient.DEFAULT_ADDR
@@ -656,6 +687,8 @@ class PowerManager(DatagramProtocol):
         #slightly hack, time is arbitrary
         #d3 = task.deferLater(reactor, 20, self.sendSyncTime)
 
+
+    #to be updated to a initialize() method
     def powerUpThinClients(self):
         logging.debug("sending IPMI command to power up ThinClients via Switch")
         params = []
@@ -690,6 +723,25 @@ class PowerManager(DatagramProtocol):
             d.addCallback(self.sendIPMICommand,params)
             d.addCallback(self._logExitValue)
         return d
+
+    def powerUpPoE(self, num):
+        logging.debug("sending power to PoE port %d" % num)
+
+        params = []
+        params.append('-H')
+        params.append(Switch.IPADDRESS)
+        params.append('-U')
+        params.append(Switch.USERNAME)
+        params.append('-P')
+        params.append(Switch.PASSWORD)
+        params.append('raw')
+        params.append(Switch.TCPOWERCMD1)
+        params.append(Switch.TCPOWERCMD2)
+        params.append(hex(num))
+        params.append(Switch.ON)    
+
+        d = self.sendIPMICommand(params)  
+        return d  
 
     def powerDownThinClients(self):
         logging.debug("preparing IPMI command for thinclient powerdown via switch")

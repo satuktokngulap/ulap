@@ -28,6 +28,7 @@ class PowerManagerTestSuite(unittest.TestCase):
         Conf.DAILYSHUTDOWN = True
         self.powerManager.shutdownDelay = None
         Power.state = PowerState.AC
+        self.waitingForPoEConfirm = False
 
     @patch('PowerManager.utils')
     def testCheckWhichNode(self, utils):
@@ -174,6 +175,13 @@ class PowerManagerTestSuite(unittest.TestCase):
 
         self.powerManager.sendIPMICommand.assert_called_with(params)
 
+    #TODO
+    def testSendSyncTime(self):
+        pass
+
+    def testSendWakeupTime(self):
+        pass
+
     @patch('PowerManager.utils')
     def test_powerOff(self, utils):
         value = None
@@ -280,7 +288,6 @@ class PowerManagerTestSuite(unittest.TestCase):
 
         assert self.powerManager.sendIPMICommand.called
 
-
     def testSendPowerONStatusToSwitch(self):
         self.powerManager.sendIPMICommand = Mock(return_value=defer.succeed(None))
         #-l for impi over lan
@@ -369,6 +376,22 @@ class PowerManagerTestSuite(unittest.TestCase):
         portfromconfig = self.powerManager.getPortNumberFromMac(mac)
 
         self.assertEqual(port, portfromconfig)
+
+    @patch('PowerManager.Mapper')
+    def testInitializeThinClient(self, mapper):
+        #reads UDP port number. stops at 16
+        #send Power to target PoE
+        #waits for UDP acknowledgement from Switch (use status?)
+        self.powerManager.powerUpPoE = Mock()
+        waitingForUDPAck = True
+        mockCounter = 2
+        self.powerManager.PoECounter = 1
+
+        d = self.powerManager.initializeThinClient()
+
+        self.powerManager.powerUpPoE.assert_called_with(mockCounter)
+        self.assertEqual(waitingForUDPAck,self.powerManager.waitingForPoEConfirm)
+        assert mapper.addNewThinClient.called
 
     @patch('PowerManager.task')
     def testStartProtocol(self, task):
@@ -501,6 +524,18 @@ class PowerManagerTestSuite(unittest.TestCase):
         self.powerManager.processCommand(udpMessage)
 
         self.powerManager.postponeShutdown.assert_called_with(time)
+
+    def testReceivedPoEUpNotification(self):
+        self.powerManager.initializeThinClient = Mock()
+
+        cmd = []
+        cmd.append(Command.POENOTIF)
+        cmd.append('\x0B')
+        #cmd = hex(Command.POENOTIF)<<4) | 0xB
+        
+        self.powerManager.processCommand(cmd)
+
+        assert self.powerManager.initializeThinClient.called
 
     def testStartShutdown_ShutdownPostponed(self):
         NodeA.shuttingDownPostponed = True
@@ -655,6 +690,28 @@ class PowerManagerTestSuite(unittest.TestCase):
         self.powerManager.sendIPMICommand.assert_has_calls(calls[0])
         self.powerManager.sendIPMICommand().addCallback.assert_has_calls(calls[1:])
         d.addCallback(self.assertEqual, None)
+
+    def testPowerUpPoE(self):
+        self.powerManager.sendIPMICommand = Mock(return_value=defer.succeed(None))
+
+        num = 11
+        params = []
+        params.append('-H')
+        params.append(Switch.IPADDRESS)
+        params.append('-U')
+        params.append(Switch.USERNAME)
+        params.append('-P')
+        params.append(Switch.PASSWORD)
+        params.append('raw')
+        params.append(Switch.TCPOWERCMD1)
+        params.append(Switch.TCPOWERCMD2)
+        params.append(hex(num))
+        params.append(Switch.ON)
+
+        d = self.powerManager.powerUpPoE(num)
+
+        self.powerManager.sendIPMICommand.assert_called_with(params)
+
 
     def testPowerDownThinClients(self):
         self.powerManager.sendIPMICommand = Mock(return_value=defer.succeed(None))
