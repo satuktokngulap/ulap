@@ -660,11 +660,13 @@ class PowerManager(DatagramProtocol):
             else:
                 self.normalShutdown() 
         elif command == Command.POENOTIF:
+            logging.debug("successfull activation of a PoE notif")
             self.waitingForPoEConfirm = False
             self.initializeThinClient()
 
 
     def initializeThinClient(self):
+        logging.debug("initializing an active ThinClient")
         self.PoECounter = self.PoECounter +1
         self.waitingForPoEConfirm = True
 

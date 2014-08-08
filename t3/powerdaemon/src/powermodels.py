@@ -1,4 +1,4 @@
-import logging
+import logging, socket
 
 #Power Conf class
 class Conf():
@@ -83,14 +83,17 @@ class ThinClient():
     SERVERA_ADDR = ('172.16.1.5', 8880)
     SERVERB_ADDR = ('172.16.1.6', 8880)
 
-    def __init__(self, IDtouple):
-        pass
+    def __init__(self, IDtouple=None):
+        if IDtouple is not None:
+            #assumes correct input
+            self.setIPAddress(IDtouple[0])
+            self.setMacAddress(IDtouple[1])
 
     def getIPAddress(self):
-        return self.ipaddress
+        return self.ipAddress
 
     def setIPAddress(self, IP):
-        self.ipaddress = IP
+        self.ipAddress = IP
 
     def getMacAddress(self):
         return self.macAddress
