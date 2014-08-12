@@ -5,7 +5,7 @@ class Conf():
     LOGFILE = '/var/log/PowerManagerDeamon.log'
     MACFILE = ''
     LOGLEVEL = logging.DEBUG
-    DAILYSHUTDOWN = True
+    SCHEDULESHUTDOWN = True
     TESTMODE = True
     SHUTDOWNHOUR = 20
     SHUTDOWNMINUTE = 0

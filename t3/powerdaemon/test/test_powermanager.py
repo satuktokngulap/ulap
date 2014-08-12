@@ -25,7 +25,7 @@ class PowerManagerTestSuite(unittest.TestCase):
         NodeB.serverState = ServerState.ON
         NodeB.shuttingDownCancelled = False
         NodeB.shuttingDownPostponed = False
-        Conf.DAILYSHUTDOWN = True
+        Conf.SCHEDULESHUTDOWN = True
         Conf.TESTMODE = True
         self.powerManager.shutdownDelay = None
         Power.state = PowerState.AC
@@ -667,7 +667,7 @@ class PowerManagerTestSuite(unittest.TestCase):
 
     @patch('PowerManager.task')
     def testStartProtocol_NoScheduling(self, task):
-        Conf.DAILYSHUTDOWN = False
+        Conf.SCHEDULESHUTDOWN = False
         self.powerManager.powerUpThinClients = Mock()
 
         self.powerManager.startProtocol()

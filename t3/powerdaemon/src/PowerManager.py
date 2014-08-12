@@ -698,7 +698,7 @@ class PowerManager(DatagramProtocol):
 
     def startProtocol(self):
         self.address = ThinClient.DEFAULT_ADDR
-        if Conf.DAILYSHUTDOWN:
+        if Conf.SCHEDULESHUTDOWN:
             logging.debug("Scheduling shutdown based on config")
             d = task.deferLater(reactor, self._timeFromShutdown(), self.normalShutdown)
         else:
