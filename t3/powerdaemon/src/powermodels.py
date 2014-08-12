@@ -6,6 +6,7 @@ class Conf():
     MACFILE = ''
     LOGLEVEL = logging.DEBUG
     DAILYSHUTDOWN = True
+    TESTMODE = True
     SHUTDOWNHOUR = 20
     SHUTDOWNMINUTE = 0
     WAKEUPHOUR = 5
@@ -83,11 +84,12 @@ class ThinClient():
     SERVERA_ADDR = ('172.16.1.5', 8880)
     SERVERB_ADDR = ('172.16.1.6', 8880)
 
-    def __init__(self, IDtouple=None):
+    def __init__(self, IDtouple=None, portNum=None):
         if IDtouple is not None:
             #assumes correct input
             self.setIPAddress(IDtouple[0])
             self.setMacAddress(IDtouple[1])
+            self.setSwitchPoEPort(portNum)
 
     def getIPAddress(self):
         return self.ipAddress
