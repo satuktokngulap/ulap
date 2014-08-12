@@ -10,7 +10,7 @@ from PowerManager import IPMISecurity
 from PowerManager import ServerNotifs
 
 from Crypto.Cipher import AES
-from datetime import datetime, date
+from datetime import datetime, date, time, timedelta
 
 #PowerManager Testsuite
 class PowerManagerTestSuite(unittest.TestCase):
@@ -26,6 +26,7 @@ class PowerManagerTestSuite(unittest.TestCase):
         NodeB.shuttingDownCancelled = False
         NodeB.shuttingDownPostponed = False
         Conf.DAILYSHUTDOWN = True
+        Conf.TESTMODE = True
         self.powerManager.shutdownDelay = None
         Power.state = PowerState.AC
         self.waitingForPoEConfirm = False
@@ -107,19 +108,19 @@ class PowerManagerTestSuite(unittest.TestCase):
 
         self.assertEqual(NodeA.serverState, ServerState.SHUTDOWN_IN_PROGRESS)
         self.assertEqual(NodeB.serverState, ServerState.SHUTDOWN_IN_PROGRESS)
-        assert self.powerManager.powerDownThinClients.called
-        self.assertEqual(self.powerManager.powerDownThinClients().addCallback.call_args_list[0],call(self.powerManager.sendIPMIAck))
-        self.assertEqual(self.powerManager.powerDownThinClients().addCallback.call_args_list[1],call(self.powerManager.sendSyncTime))
-        self.assertEqual(self.powerManager.powerDownThinClients().addCallback.call_args_list[2],call(self.powerManager.sendWakeUpTime))
-        self.assertEqual(self.powerManager.powerDownThinClients().addCallback.call_args_list[3],call(self.powerManager.lockResources))
-        self.assertEqual(self.powerManager.powerDownThinClients().addCallback.call_args_list[4],call(self.powerManager.shutdownManagementVM))
-        self.assertEqual(self.powerManager.powerDownThinClients().addCallback.call_args_list[5],call(self.powerManager.shutdownNFS))
-        self.assertEqual(self.powerManager.powerDownThinClients().addCallback.call_args_list[6],call(self.powerManager.shutdownLMS))
-        self.assertEqual(self.powerManager.powerDownThinClients().addCallback.call_args_list[7],call(self.powerManager.shutdownRDPA))
-        self.assertEqual(self.powerManager.powerDownThinClients().addCallback.call_args_list[8],call(self.powerManager.shutdownRDPB))
-        self.assertEqual(self.powerManager.powerDownThinClients().addCallback.call_args_list[9],call(self.powerManager.checkWhichNode))
-        self.assertEqual(self.powerManager.powerDownThinClients().addCallback.call_args_list[10],call(self.powerManager.shutdownNeighbor))
-        self.assertEqual(self.powerManager.powerDownThinClients().addCallback.call_args_list[11],call(self.powerManager._powerOff))
+        assert self.powerManager.sendIPMIAck.called
+        # self.assertEqual(self.powerManager.sendIPMIAck().addCallback.call_args_list[0],call(self.powerManager.sendIPMIAck))
+        self.assertEqual(self.powerManager.sendIPMIAck().addCallback.call_args_list[0],call(self.powerManager.sendSyncTime))
+        self.assertEqual(self.powerManager.sendIPMIAck().addCallback.call_args_list[1],call(self.powerManager.sendWakeUpTime))
+        self.assertEqual(self.powerManager.sendIPMIAck().addCallback.call_args_list[2],call(self.powerManager.lockResources))
+        self.assertEqual(self.powerManager.sendIPMIAck().addCallback.call_args_list[3],call(self.powerManager.shutdownManagementVM))
+        self.assertEqual(self.powerManager.sendIPMIAck().addCallback.call_args_list[4],call(self.powerManager.shutdownNFS))
+        self.assertEqual(self.powerManager.sendIPMIAck().addCallback.call_args_list[5],call(self.powerManager.shutdownLMS))
+        self.assertEqual(self.powerManager.sendIPMIAck().addCallback.call_args_list[6],call(self.powerManager.shutdownRDPA))
+        self.assertEqual(self.powerManager.sendIPMIAck().addCallback.call_args_list[7],call(self.powerManager.shutdownRDPB))
+        self.assertEqual(self.powerManager.sendIPMIAck().addCallback.call_args_list[8],call(self.powerManager.checkWhichNode))
+        self.assertEqual(self.powerManager.sendIPMIAck().addCallback.call_args_list[9],call(self.powerManager.shutdownNeighbor))
+        self.assertEqual(self.powerManager.sendIPMIAck().addCallback.call_args_list[10],call(self.powerManager._powerOff))
 
 
     def testEmergencyShutdown(self):
@@ -141,19 +142,20 @@ class PowerManagerTestSuite(unittest.TestCase):
 
         d = self.powerManager.emergencyShutdown()
 
-        assert self.powerManager.powerDownThinClients.called
-        self.assertEqual(self.powerManager.powerDownThinClients().addCallback.call_args_list[0],call(self.powerManager.sendIPMIAck))
-        self.assertEqual(self.powerManager.powerDownThinClients().addCallback.call_args_list[1],call(self.powerManager.sendSyncTime))
-        self.assertEqual(self.powerManager.powerDownThinClients().addCallback.call_args_list[2],call(self.powerManager.resetWakeup))
-        self.assertEqual(self.powerManager.powerDownThinClients().addCallback.call_args_list[3],call(self.powerManager.lockResources))
-        self.assertEqual(self.powerManager.powerDownThinClients().addCallback.call_args_list[4],call(self.powerManager.shutdownManagementVM))
-        self.assertEqual(self.powerManager.powerDownThinClients().addCallback.call_args_list[5],call(self.powerManager.shutdownNFS))
-        self.assertEqual(self.powerManager.powerDownThinClients().addCallback.call_args_list[6],call(self.powerManager.shutdownLMS))
-        self.assertEqual(self.powerManager.powerDownThinClients().addCallback.call_args_list[7],call(self.powerManager.shutdownRDPA))
-        self.assertEqual(self.powerManager.powerDownThinClients().addCallback.call_args_list[8],call(self.powerManager.shutdownRDPB))
-        self.assertEqual(self.powerManager.powerDownThinClients().addCallback.call_args_list[9],call(self.powerManager.checkWhichNode))
-        self.assertEqual(self.powerManager.powerDownThinClients().addCallback.call_args_list[10],call(self.powerManager.shutdownNeighbor))
-        self.assertEqual(self.powerManager.powerDownThinClients().addCallback.call_args_list[11],call(self.powerManager._powerOff))
+        # assert self.powerManager.powerDownThinClients.called
+        assert self.powerManager.sendIPMIAck.called
+        # self.assertEqual(self.powerManager.powerDownThinClients().addCallback.call_args_list[0],call(self.powerManager.sendIPMIAck))
+        self.assertEqual(self.powerManager.sendIPMIAck().addCallback.call_args_list[0],call(self.powerManager.sendSyncTime))
+        self.assertEqual(self.powerManager.sendIPMIAck().addCallback.call_args_list[1],call(self.powerManager.resetWakeup))
+        self.assertEqual(self.powerManager.sendIPMIAck().addCallback.call_args_list[2],call(self.powerManager.lockResources))
+        self.assertEqual(self.powerManager.sendIPMIAck().addCallback.call_args_list[3],call(self.powerManager.shutdownManagementVM))
+        self.assertEqual(self.powerManager.sendIPMIAck().addCallback.call_args_list[4],call(self.powerManager.shutdownNFS))
+        self.assertEqual(self.powerManager.sendIPMIAck().addCallback.call_args_list[5],call(self.powerManager.shutdownLMS))
+        self.assertEqual(self.powerManager.sendIPMIAck().addCallback.call_args_list[6],call(self.powerManager.shutdownRDPA))
+        self.assertEqual(self.powerManager.sendIPMIAck().addCallback.call_args_list[7],call(self.powerManager.shutdownRDPB))
+        self.assertEqual(self.powerManager.sendIPMIAck().addCallback.call_args_list[8],call(self.powerManager.checkWhichNode))
+        self.assertEqual(self.powerManager.sendIPMIAck().addCallback.call_args_list[9],call(self.powerManager.shutdownNeighbor))
+        self.assertEqual(self.powerManager.sendIPMIAck().addCallback.call_args_list[10],call(self.powerManager._powerOff))
 
     def testResetWakeup(self):
         self.powerManager.sendIPMICommand = Mock(return_value=defer.succeed(None))
@@ -181,6 +183,27 @@ class PowerManagerTestSuite(unittest.TestCase):
 
     def testSendWakeupTime(self):
         pass
+
+    #testing with actual date and time objects
+    def testGetNexDayDate(self):
+        Conf.TESTMODE = False
+        delta = timedelta(days=1)
+        tomorrow = date.today() + delta
+        testdate = date(tomorrow.year, tomorrow.month, tomorrow.day)
+
+        ret = self.powerManager.getNextDayDate()
+
+        self.assertEqual(ret, testdate)
+
+    #testing with actual date and time objects
+    def testGetNextDayDate_testmode(self):
+        today = date.today()
+        testdate = date(today.year, today.month, today.day)
+
+        ret = self.powerManager.getNextDayDate()
+
+        self.assertEqual(ret, testdate)
+
 
     @patch('PowerManager.utils')
     def test_powerOff(self, utils):
@@ -378,7 +401,8 @@ class PowerManagerTestSuite(unittest.TestCase):
         self.assertEqual(port, portfromconfig)
 
     @patch('PowerManager.Mapper')
-    def testInitializeThinClient(self, mapper):
+    @patch('PowerManager.timer') #mock to avoid actual sleep on test
+    def testInitializeThinClient(self, mocktimer, mapper):
         #reads UDP port number. stops at 16
         #send Power to target PoE
         #waits for UDP acknowledgement from Switch (use status?)
@@ -526,16 +550,36 @@ class PowerManagerTestSuite(unittest.TestCase):
         self.powerManager.postponeShutdown.assert_called_with(time)
 
     def testReceivedPoEUpNotification(self):
-        self.powerManager.initializeThinClient = Mock()
+        self.powerManager.evaluatePoENotif = Mock()
 
         cmd = []
-        cmd.append(Command.POENOTIF)
-        cmd.append('\x0B')
-        #cmd = hex(Command.POENOTIF)<<4) | 0xB
+        cmd.append(Command.POENOTIF) #command, duh
+        cmd.append('\x0B') #portnumber
+        cmd.append('\x01') #enabled/disabled
+        payload = ['\x0B','\x01']
         
         self.powerManager.processCommand(cmd)
 
+        self.powerManager.evaluatePoENotif.assert_called_with(payload)
+
+    def testEvaluatePoENotif_PoEConnectionExists(self):
+        payload = ['\x0B','\x01']
+        self.powerManager.initializeThinClient = Mock()
+
+        ret = self.powerManager.evaluatePoENotif(payload)
+
         assert self.powerManager.initializeThinClient.called
+
+    @patch('PowerManager.Mapper')
+    def testEvaluatePoENotif_NoPoEConnection(self, mapper):
+        mapper.addNullThinClient = Mock()
+        payload = None
+
+        ret = self.powerManager.evaluatePoENotif(payload)
+
+        assert mapper.addNullThinClient.called
+
+    testEvaluatePoENotif_NoPoEConnection.skip = "ongoing"
 
     def testStartShutdown_ShutdownPostponed(self):
         NodeA.shuttingDownPostponed = True

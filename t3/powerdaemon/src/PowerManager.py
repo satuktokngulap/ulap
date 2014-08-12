@@ -201,7 +201,7 @@ class PowerManager(DatagramProtocol):
         #else:
         #    params.append(str(datetom.day))
 
-        params.append('0'+str(datetom.month))
+        params.append(str(datetom.month))
         params.append(str(datetom.day))
 
 
@@ -426,13 +426,14 @@ class PowerManager(DatagramProtocol):
             self.postponeToggle = True
             self.normalShutdown()
         else:
-            logging.info("Immediate shutdown request granted")
+            logging.info("shutdown now proceeding")
             NodeA.serverState = ServerState.SHUTDOWN_IN_PROGRESS
             NodeB.serverState = ServerState.SHUTDOWN_IN_PROGRESS
             cmd = '/sbin/poweroff'
             #Todo: simplify this for Mgmt Vm based operation
-            d = self.powerDownThinClients()
-            d.addCallback(self.sendIPMIAck)
+            #d = self.powerDownThinClients()
+            #d.addCallback(self.sendIPMIAck)
+            d = self.sendIPMIAck()
             d.addCallback(self.sendSyncTime)
             #TODO: capture error on ipmi
             d.addCallback(self.sendWakeUpTime)
@@ -456,8 +457,9 @@ class PowerManager(DatagramProtocol):
         NodeA.serverState = ServerState.SHUTDOWN_IN_PROGRESS
         NodeB.serverState = ServerState.SHUTDOWN_IN_PROGRESS
 
-        d = self.powerDownThinClients()
-        d.addCallback(self.sendIPMIAck)
+        #d = self.powerDownThinClients()
+        #d.addCallback(self.sendIPMIAck)
+        d = self.sendIPMIAck()
         d.addCallback(self.sendSyncTime)
         d.addCallback(self.resetWakeup)
         d.addCallback(self.lockResources)
@@ -537,6 +539,7 @@ class PowerManager(DatagramProtocol):
 
         self.transport.write(hex(cmd), (ThinClient.DEFAULT_ADDR[0],ThinClient.DEFAULT_ADDR[1]))
         if self.postponeToggle == False:
+            logging.debug("no postponement received. Scheduled shutdown will now proceed")
             NodeA.serverState = ServerState.COUNTDOWN_IN_PROGRESS
             NodeB.serverState = ServerState.COUNTDOWN_IN_PROGRESS
             d = task.deferLater(reactor, self.shutdownDelay, self.startShutdown)
@@ -606,7 +609,7 @@ class PowerManager(DatagramProtocol):
                 command = msg[2]
         else:
             logging.debug("datagram received from switch")
-            if len(msg) > 1: payload = msg[1]
+            if len(msg) > 1: payload = msg[1:]
             command = msg[0]
         if command == Command.SHUTDOWN_IMMEDIATE:
             if NodeA.serverState == ServerState.ON or NodeB.serverState == ServerState.ON:
@@ -661,34 +664,50 @@ class PowerManager(DatagramProtocol):
                 self.normalShutdown() 
         elif command == Command.POENOTIF:
             logging.debug("successfull activation of a PoE notif")
-            self.waitingForPoEConfirm = False
-            self.initializeThinClient()
+            #self.waitingForPoEConfirm = False
+            self.evaluatePoENotif(payload)
+
+    def evaluatePoENotif(self, payload):
+        ret = None
+        if payload[1] == '\x01': #true
+            d = self.initializeThinClient()
+            ret = d
+        else:
+            Mapper.addNullThinClient(self.PoECounter)
+            self.PoECounter = self.PoECounter + 1
 
 
+        return ret
+        
+
+    #the scenario assumes that the port number matches the PoECounter
+    #if not matching, I'm not sure of the next action
+    #need to add functionality if UDP notif doesn't arrive
     def initializeThinClient(self):
         logging.debug("initializing an active ThinClient")
         self.PoECounter = self.PoECounter +1
         self.waitingForPoEConfirm = True
 
         Mapper.addNewThinClient()
-
+        
+        timer.sleep(3) # 3-second grace period before trying to activate the next PoE   
         d = self.powerUpPoE(self.PoECounter)
 
         return d
 
+
     def startProtocol(self):
         self.address = ThinClient.DEFAULT_ADDR
         if Conf.DAILYSHUTDOWN:
-            logging.debug("Scheduling shutdown")
+            logging.debug("Scheduling shutdown based on config")
             d = task.deferLater(reactor, self._timeFromShutdown(), self.normalShutdown)
         else:
             logging.debug("Daily shutdown schedule disabled")
         #hack
-        #d2 = task.deferLater(reactor, 15, self.powerUpThinClients)
+        d2 = task.deferLater(reactor, 15, self.powerUpThinClients)
 
         #slightly hack, time is arbitrary
         #d3 = task.deferLater(reactor, 20, self.sendSyncTime)
-
 
     #to be updated to a initialize() method
     def powerUpThinClients(self):
@@ -764,10 +783,12 @@ class PowerManager(DatagramProtocol):
         return d
 
     def getNextDayDate(self):
-        oneDay = timedelta(days=1)
-        tomorrow = date.today() + oneDay
-        #tomorrow = date.today()
-        return date(tomorrow.year, tomorrow.month, tomorrow.day)
+        if Conf.TESTMODE == False:
+            oneDay = timedelta(days=1)
+            targetday = date.today() + oneDay
+        else:
+            targetday = date.today()
+        return date(targetday.year, targetday.month, targetday.day)
 
     def _timeFromPowerUp(self):
         currentTime = datetime.now()

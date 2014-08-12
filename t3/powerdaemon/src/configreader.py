@@ -20,6 +20,7 @@ def _fillConfigDefaults(configfile):
 	Conf.WAKEUPHOUR = int(config.get('defaults', 'wakeuphour'))
 	Conf.WAKEUPMINUTE = int(config.get('defaults', 'wakeupminute'))
 	Conf.DAILYSHUTDOWN = bool(config.get('defaults', 'dailyshutdown'))
+	Conf.TESTMODE = bool(config.get('defaults', 'testmode'))
 
 def _fillNodeDefaults(configfile):
 	config = ConfigParser.ConfigParser()

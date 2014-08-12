@@ -48,6 +48,7 @@ class ConfigreaderTestSuite(unittest.TestCase):
         defaults['wakeuphour'] = 5
         defaults['wakeupminute'] = 0
         defaults['dailyshutdown'] = True
+        defaults['testmode'] = True
 
         self.configset['switch'] = switch
         self.configset['nodeA'] = nodeA
@@ -76,6 +77,7 @@ class ConfigreaderTestSuite(unittest.TestCase):
         self.assertEqual(Conf.WAKEUPHOUR, self.configset['defaults']['wakeuphour'])
         self.assertEqual(Conf.WAKEUPMINUTE, self.configset['defaults']['wakeupminute'])
         self.assertEqual(Conf.DAILYSHUTDOWN, self.configset['defaults']['dailyshutdown'])
+        self.assertEqual(Conf.TESTMODE, self.configset['defaults']['testmode'])
 
     def testFillNodeDefaults(self):
         configreader._fillNodeDefaults(self.testFile)
