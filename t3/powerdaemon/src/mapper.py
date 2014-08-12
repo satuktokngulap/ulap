@@ -25,11 +25,11 @@ class Mapper():
 		pass
 
 	@classmethod
-	def addNewThinClient(cls):
+	def addNewThinClient(cls, portnum):
 		
 		cls.getDHCPDetails()
 		thinClientDetails = cls.getTouple()
-		cls.thinClientsList.append(ThinClient(thinClientDetails))
+		cls.thinClientsList.append(ThinClient(thinClientDetails, portnum))
 		logging.debug("details of thinclient: %s %s" % (cls.thinClientsList[0].macAddress, cls.thinClientsList[0].ipAddress))
 
 
@@ -58,6 +58,11 @@ class Mapper():
 		os.remove('/tmp/touple')
 
 		return tupledID
+
+	@classmethod
+	def addNullThinClient(cls, portnum):
+		cls.thinClientsList.append(ThinClient((None,None), portnum))
+
 
 	@classmethod
 	def storeClientsToDB(cls):

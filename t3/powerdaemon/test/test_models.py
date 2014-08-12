@@ -18,8 +18,11 @@ class ThinClientTestsuite(unittest.TestCase):
 		mac = 'fa:16:3e:2e:cd:84'
 		ip = '10.225.3.233'
 		comb = (ip, mac)
+		portnum = 12
 
-		thinClient = ThinClient(comb)
+		thinClient = ThinClient(comb, portnum)
 		self.assertEqual(thinClient.macAddress, mac)
 		self.assertEqual(thinClient.ipAddress, ip)
+		self.assertEqual(thinClient.port, portnum)
+
 

@@ -8,6 +8,8 @@ import mapper
 
 import subprocess, shlex
 
+from powermodels import ThinClient
+
 class MapperTestsuite(unittest.TestCase):
 	def setUp(self):
 		pass
@@ -34,11 +36,12 @@ class MapperTestsuite(unittest.TestCase):
 		# mapper.Mapper.getDHCPDetails = Mock(return_value = ('10.225.1.1', '40:d8:55:0c:11:0a'))
 		mapper.Mapper.getTouple = Mock(return_value = ('10.225.1.1', '40:d8:55:0c:11:0a'))
 		mapper.Mapper.getDHCPDetails = Mock()
+		portnum = 1
 
-		mapper.Mapper.addNewThinClient()
+		mapper.Mapper.addNewThinClient(portnum)
 
 		#instantiate thinclient object
-		thinclient.assert_called_with(('10.225.1.1','40:d8:55:0c:11:0a'))
+		thinclient.assert_called_with(('10.225.1.1','40:d8:55:0c:11:0a'), portnum)
 		#store object to mapper (for now)
 		self.assertEqual(mapper.Mapper.thinClientsList[0], thinclient())
 		assert mapper.Mapper.getDHCPDetails.called 
@@ -66,6 +69,19 @@ class MapperTestsuite(unittest.TestCase):
 
 		self.assertEqual(ret, tupleID)
 		os.remove.assert_called_with('/tmp/touple')
+
+	@patch('mapper.ThinClient')
+	def testAddNullThinClient(self, tc):
+		portnum = 6
+
+		mapper.Mapper.addNullThinClient(portnum)
+
+		# tc = mapper.Mapper.thinClientsList[-1]
+		tc.assert_called_with((None,None), portnum)		
+
+	def testResetLeases(self):
+		#note: Mgmt VM will not start right away
+		pass	
 
 	#pass
 	def testSearchByMacAddress(self):
