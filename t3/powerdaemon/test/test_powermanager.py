@@ -481,7 +481,6 @@ class PowerManagerTestSuite(unittest.TestCase):
         self.assertEqual(self.powerManager.shutdownDelay, Conf.DEFAULTSCHEDULEDSHUTDOWNWAITTIME)
         task.deferLater.assert_called_with(reactor, 300, self.powerManager.startShutdown)
         write.assert_called_with(hex(cmd), (ThinClient.DEFAULT_ADDR[0], ThinClient.DEFAULT_ADDR[1]))
-        assert self.powerManager.schedulePowerUp.called
 
     @patch('PowerManager.task')
     def testNormalShutdown_Postponed(self, task):

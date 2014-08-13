@@ -175,7 +175,6 @@ class PowerManager(DatagramProtocol):
 
         return d
 
-
     def sendWakeUpTime(self, value=None):
         logging.debug("sending wake up time to switch")
 
@@ -546,7 +545,7 @@ class PowerManager(DatagramProtocol):
         else:
             d = task.deferLater(reactor, self.shutdownDelay, self.normalShutdown)
             self.postponeToggle = False
-        self.schedulePowerUp()
+        # self.schedulePowerUp()
         self.shutdownDelay = Conf.DEFAULTSCHEDULEDSHUTDOWNWAITTIME
         return d
 
