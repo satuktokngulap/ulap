@@ -30,6 +30,8 @@ class PowerManagerTestSuite(unittest.TestCase):
         self.powerManager.shutdownDelay = None
         Power.state = PowerState.AC
         self.waitingForPoEConfirm = False
+        self.powerManager.thinClientsInitialized = False
+
 
     @patch('PowerManager.utils')
     def testCheckWhichNode(self, utils):
@@ -561,24 +563,50 @@ class PowerManagerTestSuite(unittest.TestCase):
 
         self.powerManager.evaluatePoENotif.assert_called_with(payload)
 
-    def testEvaluatePoENotif_PoEConnectionExists(self):
-        payload = ['\x0B','\x01']
+    @patch('PowerManager.Mapper')
+    def testEvaluatePoENotif_PoEConnectionExists(self, mapper):
+        payload = ['\x07','\x01']
+        portnum = 7
+        self.powerManager.PoECounter = 2
         self.powerManager.initializeThinClient = Mock()
 
         ret = self.powerManager.evaluatePoENotif(payload)
 
-        assert self.powerManager.initializeThinClient.called
+        mapper.addNewThinClient.assert_called_with(portnum)
+        self.assertEqual(3, self.powerManager.PoECounter)
 
     @patch('PowerManager.Mapper')
-    def testEvaluatePoENotif_NoPoEConnection(self, mapper):
-        mapper.addNullThinClient = Mock()
-        payload = None
+    def testEvaluatePoENotif_PoEDisconnected(self, mapper):
+        self.powerManager.thinClientsInitialized = True
+        payload = ['\x07', '\x00']
+        portnumber = 7
+        self.powerManager.PoECounter = 2
 
         ret = self.powerManager.evaluatePoENotif(payload)
 
-        assert mapper.addNullThinClient.called
+        mapper.removeThinClient.assert_called_with(portnumber)
+        self.assertEqual(3, self.powerManager.PoECounter)
 
-    testEvaluatePoENotif_NoPoEConnection.skip = "ongoing"
+    @patch('PowerManager.Mapper')
+    def testEvaluatePoENotif_NoTCConnected(self, mapper):
+        self.powerManager.thinClientsInitialized = False
+        self.powerManager.PoECounter = 2
+        payload = ['\x07', '\x00']
+
+        ret = self.powerManager.evaluatePoENotif(payload)
+
+        self.assertEqual(3, self.powerManager.PoECounter)
+
+    @patch('PowerManager.Mapper')
+    def testEvaluatePoENotif_TCFinishedInializing(self, mapper):
+        Conf.MAXCLIENTS = 16
+        self.powerManager.PoECounter = 16
+        payload = ['\x07', '\x01']
+
+        ret = self.powerManager.evaluatePoENotif(payload)
+
+        self.assertEqual(self.powerManager.thinClientsInitialized, True)
+
 
     def testStartShutdown_ShutdownPostponed(self):
         NodeA.shuttingDownPostponed = True

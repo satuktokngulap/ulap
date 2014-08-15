@@ -69,12 +69,12 @@ class Command():
     AC_RESTORED = '\x02'
     
     #thinclient commands & notifications
-    SHUTDOWN_CANCEL = '\x07'
+    SHUTDOWN_CANCEL = '\x09'
     SHUTDOWN_NORMAL = '\x06'
     SHUTDOWN_REQUEST = '\x08'
     REDUCE_POWER = '\x03'
     POSTPONE = '1'
-    POENOTIF = '\x0B'
+    POENOTIF = '\x07'
 
     #from RDP
     UPDATE = '\x0A'
@@ -94,6 +94,8 @@ class PowerManager(DatagramProtocol):
         self.waitingForPoEConfirm = False
         self.PoECounter = 0
         self.readyPorts = 16 #default. changed at startup
+        self.thinClientsInitialized = False
+
 
     def _logExitValue(self, exitValue):
         logging.info("exit value of last command:%s" % exitValue)
@@ -272,6 +274,7 @@ class PowerManager(DatagramProtocol):
         params.append(str(currentTime.hour))
         params.append(str(currentTime.minute))
 
+        d = self.sendIPMICommand(params)
         return d
 
     #for triggering power cycle
@@ -610,6 +613,7 @@ class PowerManager(DatagramProtocol):
             logging.debug("datagram received from switch")
             if len(msg) > 1: payload = msg[1:]
             command = msg[0]
+        logging.debug("payload: ", payload)
         if command == Command.SHUTDOWN_IMMEDIATE:
             if NodeA.serverState == ServerState.ON or NodeB.serverState == ServerState.ON:
                 self.sendIPMIAck()
@@ -662,26 +666,32 @@ class PowerManager(DatagramProtocol):
             else:
                 self.normalShutdown() 
         elif command == Command.POENOTIF:
-            logging.debug("successfull activation of a PoE notif")
+            logging.debug("PoE notif from switch received")
             #self.waitingForPoEConfirm = False
             self.evaluatePoENotif(payload)
-
-    def evaluatePoENotif(self, payload):
-        ret = None
-        if payload[1] == '\x01': #true
-            d = self.initializeThinClient()
-            ret = d
-        else:
-            Mapper.addNullThinClient(self.PoECounter)
-            self.PoECounter = self.PoECounter + 1
-
-
-        return ret
-        
 
     #the scenario assumes that the port number matches the PoECounter
     #if not matching, I'm not sure of the next action
     #need to add functionality if UDP notif doesn't arrive
+    def evaluatePoENotif(self, payload):
+        ret = None
+        port = ord(payload[0])
+
+        if self.PoECounter == Conf.MAXCLIENTS:
+            self.thinClientsInitialized = True
+
+        if payload[1] == '\x01': #true
+            d = Mapper.addNewThinClient(port)
+            ret = d
+        elif payload[1] == '\x00' and self.thinClientsInitialized == True:
+            d = Mapper.removeThinClient(port)
+            ret = d
+
+        self.PoECounter = self.PoECounter + 1
+
+        return ret
+        
+    #TODO: remove 
     def initializeThinClient(self):
         logging.debug("initializing an active ThinClient")
         self.PoECounter = self.PoECounter +1
@@ -696,6 +706,7 @@ class PowerManager(DatagramProtocol):
 
 
     def startProtocol(self):
+        logging.info("Power Daemon has now")
         self.address = ThinClient.DEFAULT_ADDR
         if Conf.SCHEDULESHUTDOWN:
             logging.debug("Scheduling shutdown based on config")
