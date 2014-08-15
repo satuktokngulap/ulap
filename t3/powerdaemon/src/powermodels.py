@@ -5,12 +5,13 @@ class Conf():
     LOGFILE = '/var/log/PowerManagerDeamon.log'
     MACFILE = ''
     LOGLEVEL = logging.DEBUG
-    SCHEDULESHUTDOWN = True
-    TESTMODE = True
+    SCHEDULESHUTDOWN = False
+    TESTMODE = False
     SHUTDOWNHOUR = 20
     SHUTDOWNMINUTE = 0
     WAKEUPHOUR = 5
     WAKEUPMINUTE = 0
+    MAXCLIENTS = 16
     DEFAULTSCHEDULEDSHUTDOWNWAITTIME = 0x258
 
 #States
