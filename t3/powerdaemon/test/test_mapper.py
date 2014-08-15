@@ -70,6 +70,17 @@ class MapperTestsuite(unittest.TestCase):
 		self.assertEqual(ret, tupleID)
 		os.remove.assert_called_with('/tmp/touple')
 
+	def testRemoveThinClient(self):
+		portnum = 7
+		tc = Mock()
+		tc.port = portnum
+		mapper.Mapper.thinClientsList = [tc]
+
+		mapper.Mapper.removeThinClient(portnum)
+
+		self.assertEqual(len(mapper.Mapper.thinClientsList), 0)
+
+
 	@patch('mapper.ThinClient')
 	def testAddNullThinClient(self, tc):
 		portnum = 6

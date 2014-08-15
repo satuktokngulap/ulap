@@ -63,6 +63,12 @@ class Mapper():
 	def addNullThinClient(cls, portnum):
 		cls.thinClientsList.append(ThinClient((None,None), portnum))
 
+	@classmethod
+	def removeThinClient(cls, portnum):
+		for tc in cls.thinClientsList:
+			if tc.port == portnum:
+				cls.thinClientsList.remove(tc)
+
 
 	@classmethod
 	def storeClientsToDB(cls):
