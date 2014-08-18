@@ -142,6 +142,7 @@ chkconfig --levels 235 munin-node on
 #Node specific config
 #select appropriate munin config template
 
+#HERE
 SCRIPT_DIR=$(get_script_dir)
 if [[ $(hostname | grep "sa") ]]; then
     #Node A
