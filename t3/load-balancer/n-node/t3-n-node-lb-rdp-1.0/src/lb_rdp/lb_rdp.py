@@ -34,7 +34,7 @@ class LoadException(RDPException):
 
 def cli_call(cmd_str, suppress_warnings=False):
     """
-        Executes the shell command <cmd_str> and returns the output, 
+        Executes the shell command <cmd_str> and returns the output,
         otherwise raises an error, if any is encountered.
     """
     cmd_list = shlex.split(cmd_str)
@@ -71,7 +71,7 @@ class RdpLoadBalancer:
 
     def get_ip_address(self, ifname):
         """
-            Returns the IP Address for interface <ifname> 
+            Returns the IP Address for interface <ifname>
             (currently set to 'eth1')
         """
         try:
@@ -87,9 +87,9 @@ class RdpLoadBalancer:
 
     def parse_load(self, client_ip):
         """
-            Parses and returns the current number of unique 
-            RDP TCP connections, the maximum allowed RDP connections 
-            from XRDP, and the number of duplicate RDP TCP connections 
+            Parses and returns the current number of unique
+            RDP TCP connections, the maximum allowed RDP connections
+            from XRDP, and the number of duplicate RDP TCP connections
             derived from the source IP address of <client_ip>.
         """
         cli_cmd = "netstat -antlp"
@@ -101,7 +101,7 @@ class RdpLoadBalancer:
 
     def discount_dups(self, matches, client_ip):
         """
-            Returns the unique RDP TCP connections from <matches>, 
+            Returns the unique RDP TCP connections from <matches>,
             and the number of duplicate RDP TCP connections matching <client_ip>
         """
         tc_ip_addresses = []
@@ -118,7 +118,7 @@ class RdpLoadBalancer:
 
     def count_xrdp_connections(self, data_string, client_ip):
         """
-            Counts the number of unique RDP TCP connections and 
+            Counts the number of unique RDP TCP connections and
             duplicates from <data_string> returned by the 'netstat' command.
         """
         #subnet=get_ip_address(self.INTERFACE).rpartition(".")[0]+"."
@@ -136,7 +136,7 @@ class RdpLoadBalancer:
             Returns true if <s> is a valid IP address, false otherwise
         """
         a = s.split('.')
-        
+
         if len(a) != 4:
             return False
         for x in a:
@@ -150,7 +150,7 @@ class RdpLoadBalancer:
 def main():
     rdp_lb = RdpLoadBalancer()
     rdp_lb.log("LB-RDP Started!")
-    
+
     # Initialize listener socket
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -174,13 +174,13 @@ def main():
                 client_ip = tokens[1].rstrip()
                 if rdp_lb.validate_ip(client_ip):   # Validate <client_ip> if proper IP Address
                     reply = rdp_lb.parse_load(client_ip)     # Reply with load and duplicates data
-                    
+
                 else:
                     reply = 'ERR Invalid IP address argument: [%s]\n' % client_ip   # Otherwise, reply with error
-                    
+
             else:
                 reply = 'ERR Unknown command sent [%s]\n' % data                    # Error reply for unhandled request
-            
+
         else:
             reply = "ERR 'INQ' request needs an IP address argument. Command sent [%s]\n" % tokens[0] # Error reply for insufficient arguments
 

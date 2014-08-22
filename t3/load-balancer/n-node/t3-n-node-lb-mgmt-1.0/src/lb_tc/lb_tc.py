@@ -5,7 +5,7 @@ from ConfigParser import ConfigParser
 ###
 #  EXCEPTIONS
 ###
-    
+
 class RDPException(Exception):
     """
         Parent exception class for load balancer
@@ -66,13 +66,13 @@ def check_file_exists(path_to_file):
     try:
         with open(path_to_file): pass
         return True
-        
+
     except IOError:
         return False
 
 def cli_call(cmd_str):
     """
-        Executes the shell command <cmd_str> and returns the output, 
+        Executes the shell command <cmd_str> and returns the output,
         otherwise raises an error, if any is encountered.
     """
     cmd_list = shlex.split(cmd_str)
@@ -86,7 +86,7 @@ def cli_call(cmd_str):
             %s""" % (cmd_str, err_msg)
 
         raise CommandCallException(err_msg)
-        
+
 class TcLoadBalancer:
     "Class for Thin Client Load Balancer"
     def __init__(self):
@@ -101,19 +101,19 @@ class TcLoadBalancer:
         self.XFREERDP_CMD    = CONFIG.get(SETTINGS, "XFREERDP_CMD")
         self.SLEEP_TIME      = CONFIG.getint(SETTINGS, "SLEEP_TIME")
         self.LOGGING         = CONFIG.getboolean(SETTINGS, "LOGGING")
-        
+
     def log(self, msg):
         """
             Logs to standard output
         """
         if self.LOGGING:
             print "[LB TC]: "+str(msg)
-            
+
     def get_loadbalanced_rdp_server(self):
         """
-            Creates a connection to the Management Load Balancer and 
-            sends an 'INQ' message inquiring for the load-balanced 
-            RDP VM to connect to. Returns the IP address of the 
+            Creates a connection to the Management Load Balancer and
+            sends an 'INQ' message inquiring for the load-balanced
+            RDP VM to connect to. Returns the IP address of the
             load-balanced RDP VM."
         """
         command = "INQ"     #Request command to send to Management Load Balancer
@@ -133,26 +133,26 @@ class TcLoadBalancer:
         except socket.error as e:
             self.log(str(e))
             raise LoadException("Cannot contact lb_mgmt")
-            
+
 def main():
     tc_lb = TcLoadBalancer()
     tc_lb.log("LB-TC Started!")
-    
+
     while True:
         try:
             # Send inquiry to Management VM and get response
-            lb_mgmt_reply = tc_lb.get_loadbalanced_rdp_server()                         
-            tc_lb.log(lb_mgmt_reply) 
-        
+            lb_mgmt_reply = tc_lb.get_loadbalanced_rdp_server()
+            tc_lb.log(lb_mgmt_reply)
+
             # Call command to xfreerdp client to initiate RDP connection to load-balanced RDP VM IP
             rdp_cmd = tc_lb.XFREERDP_CMD + " " + lb_mgmt_reply.split(" ")[1].rstrip()
-            tc_lb.log("[DEBUG] CLI command: "+rdp_cmd)    
+            tc_lb.log("[DEBUG] CLI command: "+rdp_cmd)
             cmd_result = cli_call(rdp_cmd)
             tc_lb.log(cmd_result)
-            
+
         except LoadException as e:                                              # Output error if Management VM cannot be found
             tc_lb.log("[ERROR] "+str(e))
-        
+
         except CommandCallException as e:                                       # Output error if call to shell command fails
             tc_lb.log("[ERROR] Error executing shell command!\n    "+str(e))
 
