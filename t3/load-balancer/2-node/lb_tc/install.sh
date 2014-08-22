@@ -64,7 +64,7 @@ then
     awk '{print "#" $0;}' $XINITRC_FILE > awk_out.tmp && mv awk_out.tmp $XINITRC_FILE
     
     #add xterm and script to x startup
-    echo "xterm &" >> $XINITRC_FILE
-    echo "exec python /opt/lb_tc/lb_tc.py" >> $XINITRC_FILE
+    echo "python /opt/lb_tc/lb_tc.py &" >> $XINITRC_FILE
+    echo "exec xterm" >> $XINITRC_FILE
 fi
 echo "Done!"
