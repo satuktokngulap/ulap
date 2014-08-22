@@ -38,7 +38,7 @@ stop () {
 
 case "$1" in
 	start)
-		echo -n "Starting power management services: " 
+		echo -n "\nStarting power management services: " 
 		if [ -e $LOCKFILE ]
 		then
 			echo "service could be running already!"
@@ -48,7 +48,7 @@ case "$1" in
 		fi
 	;;
 	stop)
-		echo -n "Shutting down power management services: "
+		echo -n "\nShutting down power management services: "
 		killproc $SERVICE
 		rm -f $LOCKFILE
 		rm -f $PIDFILE

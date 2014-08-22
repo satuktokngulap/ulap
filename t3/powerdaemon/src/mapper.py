@@ -3,13 +3,14 @@
 #Author: Gene Paul L. Quevedo
 
 from powermodels import ThinClient, MgmtVM
+from twisted.internet import defer, utils
 
 import subprocess, logging, shlex, os
 
 class Mapper():
 
 	thinClientsList = []
-	
+	toupleFile = '/tmp/touple'
 
 	@classmethod
 	def resetLeases(cls):
@@ -24,40 +25,46 @@ class Mapper():
 	def initializeMap(cls):
 		pass
 
-	@classmethod
+	@classmethod	
 	def addNewThinClient(cls, portnum):
-		
-		cls.getDHCPDetails()
-		thinClientDetails = cls.getTouple()
-		cls.thinClientsList.append(ThinClient(thinClientDetails, portnum))
-		logging.debug("details of thinclient: %s %s" % (cls.thinClientsList[0].macAddress, cls.thinClientsList[0].ipAddress))
+	 	logging.debug("adding thinclient to map")
+	 	d = cls.getDHCPDetails()
+	 	d.addCallback(cls.getTouple)
+	 	d.addCallback(cls.addTCToList, portnum)
 
+	 	return d
 
 	@classmethod
 	def getDHCPDetails(cls):
-
+		#need some grace period here
+		logging.debug("getting DHCP details from DHCP Lease file")
+		sshcmd = '/usr/bin/ssh'
 		mgmtIP = MgmtVM.IPADDRESS
 		remotecmd = "python /opt/lease_parser.py"
-		cmd = 'ssh root@%s "%s" > /tmp/touple' % (mgmtIP, remotecmd)
+		cmd = '-o "StrictHostKeyChecking no" root@%s "%s"' % (mgmtIP, remotecmd)
 		args = shlex.split(cmd)
 		logging.debug("parsing using command: %s" % cmd)
-		p = subprocess.Popen(args)
+		d = utils.getProcessOutput(sshcmd, args)
 
+		return d
 	
 
 	@classmethod
-	def getTouple(cls):
-		f = open('/tmp/touple', 'r')
-		output = f.readline()
-		logging.debug("output: %s" % output)
-		splittedString = output.split(',')
-		tupledID = (splittedString[0],splittedString[1])
-		logging.debug("adding thinClient %s" % output)
-		f.close()
+	def getTouple(cls, touple=None):
+		logging.debug("getting IP address Mac Address touple %s" % touple)
+	
+		if touple:
+			splittedString = touple.split(',')
+		tupleID = (splittedString[0],splittedString[1])
+	
+		return defer.succeed(tupleID)
 
-		os.remove('/tmp/touple')
-
-		return tupledID
+	#required tuple and port. only compatible for getTouple for chaining
+	@classmethod
+	def addTCToList(cls, tctuple, port):
+		logging.debug("adding thinClient %s %s" % tctuple, port)
+		thinclient = ThinClient(tctuple, port)
+		cls.thinClientsList.append(thinclient)
 
 	@classmethod
 	def addNullThinClient(cls, portnum):
@@ -65,6 +72,7 @@ class Mapper():
 
 	@classmethod
 	def removeThinClient(cls, portnum):
+		logging.debug("removing thinClient with portnum %d" % portnum)
 		for tc in cls.thinClientsList:
 			if tc.port == portnum:
 				cls.thinClientsList.remove(tc)

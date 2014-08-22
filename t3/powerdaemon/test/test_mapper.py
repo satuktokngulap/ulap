@@ -34,41 +34,88 @@ class MapperTestsuite(unittest.TestCase):
 	@patch('mapper.ThinClient')
 	def testAddNewThinClient(self, thinclient):
 		# mapper.Mapper.getDHCPDetails = Mock(return_value = ('10.225.1.1', '40:d8:55:0c:11:0a'))
-		mapper.Mapper.getTouple = Mock(return_value = ('10.225.1.1', '40:d8:55:0c:11:0a'))
-		mapper.Mapper.getDHCPDetails = Mock()
+		mapper.Mapper.getTouple = Mock(return_value=defer.succeed(('10.225.1.1', '40:d8:55:0c:11:0a')))
+		mapper.Mapper.getDHCPDetails = Mock(return_value=defer.succeed(None))
 		portnum = 1
 
-		mapper.Mapper.addNewThinClient(portnum)
+		d = mapper.Mapper.addNewThinClient(portnum)
 
-		#instantiate thinclient object
 		thinclient.assert_called_with(('10.225.1.1','40:d8:55:0c:11:0a'), portnum)
-		#store object to mapper (for now)
 		self.assertEqual(mapper.Mapper.thinClientsList[0], thinclient())
 		assert mapper.Mapper.getDHCPDetails.called 
 
+	testAddNewThinClient.skip = 'change to callback style'
+
+	def testAddNewThinClient(self):
+		mapper.Mapper.getTouple = Mock(return_value=defer.succeed(('10.225.1.1', '40:d8:55:0c:11:0a')))
+		mapper.Mapper.getDHCPDetails = Mock(return_value=defer.succeed(None))
+		mapper.Mapper.addTCToList = Mock(return_value=defer.succeed('end'))
+		portnum = 9
+
+		d = mapper.Mapper.addNewThinClient(portnum)
+
+		# assert mapper.Mapper.getDHCPDetails.called
+		# assert mapper.Mapper.getTouple.called
+		d.addCallback(self.assertEqual, 'end')
+
 	#wrapper for dhcpd parser. Output: ipaddress,mac-address tuple
-	def testGetDHCPDetails(self):
-		cmd = 'ssh root@10.18.221.21 "python /opt/lease_parser.py" > /tmp/touple'
-		args = shlex.split(cmd)
-		subprocess.Popen = Mock()
-		#subprocess.Popen().stdout.readline = Mock(return_value=TCID)
+	@patch('mapper.utils')
+	def testGetDHCPDetails(self, utils):
+		cmd = '/usr/bin/ssh' 
+		params = ' -o "StrictHostKeyChecking no" root@10.18.221.21 "python /opt/lease_parser.py"'
+		params = shlex.split(params)
+		utils.getProcessOutput = Mock(return_value=defer.succeed(None))
 
-		mapper.Mapper.getDHCPDetails()
+		d = mapper.Mapper.getDHCPDetails()
 
-		subprocess.Popen.assert_called_with(args)
-		#self.assertEqual(ret, tupleID)
+		utils.getProcessOutput.assert_called_with(cmd, params)
+		d.addCallback(self.assertEqual, None)
 
 	@patch('mapper.os')
 	@patch('__builtin__.open')
-	def testGetTouple(self, fileopen, os):
+	def testGetTouple_fileRemoved(self, fileopen, os):
 		TCID = '172.16.1.10,40:d8:55:0c:11:0a'
-		tupleID = ('172.16.1.10','40:d8:55:0c:11:0a')
 		fileopen().readline = Mock(return_value=TCID)
 
 		ret = mapper.Mapper.getTouple()
 
-		self.assertEqual(ret, tupleID)
 		os.remove.assert_called_with('/tmp/touple')
+
+	testGetTouple_fileRemoved.skip = "not performed"
+	
+	@patch('mapper.os')
+	@patch('__builtin__.open')
+	def testGetTouple_returnDeferred(self, fileopen, os):
+		TCID = '172.16.1.10,40:d8:55:0c:11:0a'
+		tupleID = ('172.16.1.10','40:d8:55:0c:11:0a')
+		# fileopen().readline = Mock(return_value=TCID)
+
+		d = mapper.Mapper.getTouple((TCID))
+
+		d.addCallback(self.assertEqual, tupleID)
+
+	@patch('mapper.ThinClient')
+	def testAddTCToList_correctObject(self, tc):
+		touple = ('10.18.221.25', '40:d8:55:0c:11:0a')
+		port = 8
+
+		d = mapper.Mapper.addTCToList(touple, port)
+
+		self.assertEqual(mapper.Mapper.thinClientsList[0], tc())
+
+	@patch('mapper.ThinClient')
+	def testAddTCToList_correctParams(self, tc):
+		touple = ('10.18.221.25', '40:d8:55:0c:11:0a')
+		port = 8
+		
+		d = mapper.Mapper.addTCToList(touple, port)
+
+		tc.assert_called_with(touple, port)
+
+	#should not happen since thinclient is deleted as soon as it is disconnected
+	@patch('mapper.ThinClient')
+	def testAddTCToList_sameThinClient(self, tc):
+		pass
 
 	def testRemoveThinClient(self):
 		portnum = 7

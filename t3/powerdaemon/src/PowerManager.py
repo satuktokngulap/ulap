@@ -92,7 +92,7 @@ class PowerManager(DatagramProtocol):
         self.shutdownDelay = Conf.DEFAULTSCHEDULEDSHUTDOWNWAITTIME
         self.postponeToggle = False
         self.waitingForPoEConfirm = False
-        self.PoECounter = 0
+        self.PoECounter = 1
         self.readyPorts = 16 #default. changed at startup
         self.thinClientsInitialized = False
 
@@ -192,15 +192,6 @@ class PowerManager(DatagramProtocol):
         params.append('0x38')
 
         datetom = self.getNextDayDate()
-        #format date
-        #if datetom.month <= 9:
-        #    params.append('0'+str(datetom.month))
-        #else:
-        #    params.append(str(datetom.month))
-        #if datetom.day <= 9:
-        #    params.append('0'+str(datetom.day))
-        #else:
-        #    params.append(str(datetom.day))
 
         params.append(str(datetom.month))
         params.append(str(datetom.day))
@@ -210,16 +201,6 @@ class PowerManager(DatagramProtocol):
         year2 = str(datetom.year)[2:4]
         params.append(year1)
         params.append(year2)
-
-        #format time
-        #if Conf.WAKEUPHOUR <= 9:
-        #    params.append('0'+str(Conf.WAKEUPHOUR))
-        #else:
-        #    params.append(str(Conf.WAKEUPHOUR))
-        #if Conf.WAKEUPMINUTE <= 9:
-        #    params.append('0'+str(Conf.WAKEUPMINUTE))
-        #else:
-        #    params.append(str(Conf.WAKEUPMINUTE))
 
         params.append(str(Conf.WAKEUPHOUR))
         params.append(str(Conf.WAKEUPMINUTE))
@@ -243,15 +224,6 @@ class PowerManager(DatagramProtocol):
 
         currentTime = self.getCurrentTime()
 
-        #format date
-        # if currentTime.month <= 9:
-        #     params.append('0'+str(currentTime.month))
-        # else:
-        #     params.append(str(currentTime.month))
-        # if currentTime.day <= 9:
-        #     params.append('0'+str(currentTime.day))
-        # else:
-        #     params.append(str(currentTime.day))
         params.append(str(currentTime.month))
         params.append(str(currentTime.day))
 
@@ -260,17 +232,6 @@ class PowerManager(DatagramProtocol):
         params.append(year1)
         params.append(year2)
 
-        #format time
-        # if currentTime.hour <= 9:
-        #     params.append('0'+str(currentTime.hour))
-        # else:
-        #     params.append(str(currentTime.hour))
-        # if currentTime.minute <= 9:
-        #     params.append('0'+str(currentTime.minute))
-        # else:
-        #     params.append(str(currentTime.minute))
-
-        # d = self.sendIPMICommand(params)
         params.append(str(currentTime.hour))
         params.append(str(currentTime.minute))
 
@@ -613,7 +574,6 @@ class PowerManager(DatagramProtocol):
             logging.debug("datagram received from switch")
             if len(msg) > 1: payload = msg[1:]
             command = msg[0]
-        logging.debug("payload: ", payload)
         if command == Command.SHUTDOWN_IMMEDIATE:
             if NodeA.serverState == ServerState.ON or NodeB.serverState == ServerState.ON:
                 self.sendIPMIAck()
@@ -674,23 +634,35 @@ class PowerManager(DatagramProtocol):
     #if not matching, I'm not sure of the next action
     #need to add functionality if UDP notif doesn't arrive
     def evaluatePoENotif(self, payload):
+        logging.debug("evaluating PoE Notification from switch with length %d" % len(payload))
         ret = None
         port = ord(payload[0])
 
-        if self.PoECounter == Conf.MAXCLIENTS:
+        if Conf.TESTMODE:
+            #3 TCs to be initialized only on testmode
+            #hardcoded for now
+            #what if more than 16?!
+            if self.PoECounter >= 3:
+                self.thinClientsInitialized = True
+
+        if self.PoECounter >= Conf.MAXCLIENTS:
+            logging.debug("ThinClient map initialization has ended")
             self.thinClientsInitialized = True
 
         if payload[1] == '\x01': #true
+            #still thinking of doing callback here
+            self.powerUpPoE(port+1)
             d = Mapper.addNewThinClient(port)
+            if not self.thinClientsInitialized:
+                self.PoECounter = self.PoECounter + 1
             ret = d
         elif payload[1] == '\x00' and self.thinClientsInitialized == True:
             d = Mapper.removeThinClient(port)
             ret = d
-
-        self.PoECounter = self.PoECounter + 1
-
-        return ret
-        
+        else:
+            logging.debug("PoE on port %d failed. LAN cable probably disconnected" % port)
+            self.PoECounter = self.PoECounter + 1
+            
     #TODO: remove 
     def initializeThinClient(self):
         logging.debug("initializing an active ThinClient")
@@ -706,7 +678,7 @@ class PowerManager(DatagramProtocol):
 
 
     def startProtocol(self):
-        logging.info("Power Daemon has now")
+        logging.info("Power Daemon has now started")
         self.address = ThinClient.DEFAULT_ADDR
         if Conf.SCHEDULESHUTDOWN:
             logging.debug("Scheduling shutdown based on config")
@@ -817,8 +789,9 @@ class PowerManager(DatagramProtocol):
 
     def datagramReceived(self, data, (host, port)):
         self.address = (host, port)
+        logging.info("datagram received with length %d" % len(data))
         self.processCommand(data)
-        logging.info("datagram received")
+        
 
     def updateTCDatabase(self):
         

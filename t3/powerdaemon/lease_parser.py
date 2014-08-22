@@ -2,8 +2,9 @@
 #Output of the script should be a string for simplicity
 #Author: Gene Paul L. Quevedo
 
-from parse import *
+# from parse import *
 import sys
+import re
 
 #logic of parsing DHCP lease
 ipaddress = None
@@ -12,13 +13,14 @@ HWaddress = None
 leaseFile = open("/var/lib/dhcpd/dhcpd.leases")
 
 for line in leaseFile:
-    ipstring = parse("lease {} {", line)
+	ipstring = re.findall('\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}', line)
     if ipstring is not None:
         ipaddress = ipstring[0]
-    hwstring = parse("  hardware ethernet {};", line)
+    hwstring = re.findall('[0-9a-z]{2}:[0-9a-z]{2}:[0-9a-z]{2}:[0-9a-z]{2}:[0-9a-z]{2}:[0-9a-z]{2}', line)
     if hwstring is not None:
     	HWaddress = hwstring[0]
 
 values = "%s,%s" % (ipaddress, HWaddress)
 
-sys.exit(values)
+print values
+sys.exit(0)
