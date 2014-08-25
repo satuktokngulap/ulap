@@ -2,8 +2,9 @@
 #author: Gene Paul L. Quevedo
 
 import sqlite3
+import logging
 
-from powermodels import ThinClient
+from powermodels import ThinClient, Conf
 
 class DBHandler():
 
@@ -13,11 +14,18 @@ class DBHandler():
 	
 	@classmethod
 	def openDB(cls, dbfile):
+		logging.debug("custom DB File opened")
 		cls.conn = sqlite3.connect(dbfile) 
 		cls.cursor = cls.conn.cursor()
 
 	@classmethod
+	def openDBFromConfigFile(cls):
+		cls.conn = sqlite3.connect(Conf.MAPFILE)
+		cls.cursor = cls.conn.cursor()
+
+	@classmethod
 	def insert(cls, table, data):
+		logging.debug("insert operation performed for table %s" % table)
 		numvalues = len(data)
 		query = "INSERT INTO %s VALUES (" % table 
 		for n in range(numvalues):
@@ -38,6 +46,7 @@ class ThinClientHandler(DBHandler):
 
 	@classmethod
 	def updateThinClientWithPort(cls, ipaddress, port):
+		logging.debug("updating DB entry for ThinClient with port %d" % port)
 		data = {"ipaddress": ipaddress , "portnum": port }
 		query = "UPDATE thinclient SET \
 			ipaddress=:ipaddress \
@@ -54,6 +63,7 @@ class ThinClientHandler(DBHandler):
 
 	@classmethod
 	def removeThinClient(cls, thinclient):
+		logging.debug("removing thinClient on DB")
 		query = "DELETE FROM thinclient \
 			WHERE portnum=:portnum"
 		data = {"portnum": thinclient.port}
@@ -62,10 +72,10 @@ class ThinClientHandler(DBHandler):
 
 	@classmethod
 	def getThinClient(cls, port):
+		logging.debug("retrieving thinclient with port %d" % port)
 		query = "SELECT * FROM thinclient WHERE portnum=:portnum"
 		tc = None
 		TClist = cls.cursor.execute(query, {"portnum": port})
-		print TClist
 		for row in TClist:
 			if row[0] == port:
 				tc = ThinClient((str(row[1]), str(row[2])), row[0])
