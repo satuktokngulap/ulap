@@ -46,17 +46,20 @@ class MapperTestsuite(unittest.TestCase):
 
 	testAddNewThinClient.skip = 'change to callback style'
 
-	def testAddNewThinClient(self):
+	#TODO: separate into 4 unit tests
+	@patch('mapper.ThinClientHandler')
+	def testAddNewThinClient(self, tchandler):
 		mapper.Mapper.getTouple = Mock(return_value=defer.succeed(('10.225.1.1', '40:d8:55:0c:11:0a')))
 		mapper.Mapper.getDHCPDetails = Mock(return_value=defer.succeed(None))
-		mapper.Mapper.addTCToList = Mock(return_value=defer.succeed('end'))
+		mapper.Mapper.addTCToList = Mock(return_value=defer.succeed('begin'))
+		tchandler.addThinClient = Mock(return_value=defer.succeed('end'))
 		portnum = 9
 
 		d = mapper.Mapper.addNewThinClient(portnum)
 
-		# assert mapper.Mapper.getDHCPDetails.called
-		# assert mapper.Mapper.getTouple.called
 		d.addCallback(self.assertEqual, 'end')
+
+
 
 	#wrapper for dhcpd parser. Output: ipaddress,mac-address tuple
 	@patch('mapper.utils')
@@ -93,7 +96,7 @@ class MapperTestsuite(unittest.TestCase):
 		d = mapper.Mapper.getTouple((TCID))
 
 		d.addCallback(self.assertEqual, tupleID)
-
+	
 	@patch('mapper.ThinClient')
 	def testAddTCToList_correctObject(self, tc):
 		touple = ('10.18.221.25', '40:d8:55:0c:11:0a')
@@ -111,13 +114,25 @@ class MapperTestsuite(unittest.TestCase):
 		d = mapper.Mapper.addTCToList(touple, port)
 
 		tc.assert_called_with(touple, port)
+	
+	@patch('mapper.ThinClient')
+	@patch('mapper.defer')
+	def testAddTCToList_returnTCObject(self, defer, tc):
+		touple = ('10.18.221.25', '40:d8:55:0c:11:0a')
+		port = 8
+
+		d = mapper.Mapper.addTCToList(touple, port)
+
+		d.addCallback(self.assertEqual, tc())
+
 
 	#should not happen since thinclient is deleted as soon as it is disconnected
 	@patch('mapper.ThinClient')
 	def testAddTCToList_sameThinClient(self, tc):
 		pass
 
-	def testRemoveThinClient(self):
+	@patch('mapper.ThinClientHandler')
+	def testRemoveThinClient(self, tchandler):
 		portnum = 7
 		tc = Mock()
 		tc.port = portnum
@@ -126,6 +141,17 @@ class MapperTestsuite(unittest.TestCase):
 		mapper.Mapper.removeThinClient(portnum)
 
 		self.assertEqual(len(mapper.Mapper.thinClientsList), 0)
+
+	@patch('mapper.ThinClientHandler')
+	def testRemoveThinClient_removeFromDB(self, tchandler):
+		portnum = 7
+		tc = Mock()
+		tc.port = portnum
+		mapper.Mapper.thinClientsList = [tc]
+
+		mapper.Mapper.removeThinClient(portnum)
+
+		tchandler.removeThinClient.assert_called_with(tc)
 
 
 	@patch('mapper.ThinClient')
