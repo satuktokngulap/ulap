@@ -127,6 +127,7 @@ class PowerManager(DatagramProtocol):
         d = self.sendIPMICommand(params) 
         return d
 
+    #Deprecated/unused
     def getPortNumberFromMac(self, mac):
         config = ConfigParser.ConfigParser()
         config.read(Conf.MACFILE)
@@ -652,7 +653,7 @@ class PowerManager(DatagramProtocol):
         if payload[1] == '\x01': #true
             #still thinking of doing callback here
             self.powerUpPoE(port+1)
-            d = Mapper.addNewThinClient(port)
+            d = task.deferLater(reactor, 5, Mapper.addNewThinClient, port)
             if not self.thinClientsInitialized:
                 self.PoECounter = self.PoECounter + 1
             ret = d
