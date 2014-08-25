@@ -49,6 +49,7 @@ class ConfigreaderTestSuite(unittest.TestCase):
         defaults['wakeupminute'] = 0
         defaults['scheduleshutdown'] = True
         defaults['testmode'] = True
+        defaults['mapfile'] = '/var/lib/powerdaemon/pmd_DB.sql'
 
         self.configset['switch'] = switch
         self.configset['nodeA'] = nodeA
@@ -78,6 +79,7 @@ class ConfigreaderTestSuite(unittest.TestCase):
         self.assertEqual(Conf.WAKEUPMINUTE, self.configset['defaults']['wakeupminute'])
         self.assertEqual(Conf.SCHEDULESHUTDOWN, self.configset['defaults']['scheduleshutdown'])
         self.assertEqual(Conf.TESTMODE, self.configset['defaults']['testmode'])
+        self.assertEqual(Conf.MAPFILE, self.configset['defaults']['mapfile'])
 
     def testFillNodeDefaults(self):
         configreader._fillNodeDefaults(self.testFile)
