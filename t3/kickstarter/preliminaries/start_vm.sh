@@ -54,10 +54,10 @@ while [ $TIMER -ne $TIMEOUT ]; do
 			clusvcadm -e nfs-shared
 			$LOG "Checking status of VM services on $LOCALNODE"
 			for VM in $(clustat | gawk '!/Service/ && !/-/ && /vm:'${LOCALNODE:1:1}'_/ {print $1}'); do
-                                if [ "$VM" == "vm:a_vm_rdpa"  -o  "$VM" == "vm:b_vm_rdpb" ]; then
-					$LOG "$VM is marked for exclusion. Will not enable this service."
-					continue
-				fi
+                                #if [ "$VM" == "vm:a_vm_rdpa"  -o  "$VM" == "vm:b_vm_rdpb" ]; then
+				#	$LOG "$VM is marked for exclusion. Will not enable this service."
+				#	continue
+				#fi
 				# Check status of VMs
 				case $(clustat -s $VM | gawk '!/Service/ && !/-/ {print $3}') in
 				started )
