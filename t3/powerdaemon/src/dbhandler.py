@@ -38,6 +38,10 @@ class DBHandler():
 		pass
 
 	@classmethod
+	def commit(cls):
+		cls.conn.commit()
+
+	@classmethod
 	def close():
 		pass
 
@@ -61,6 +65,8 @@ class ThinClientHandler(DBHandler):
 
 		cls.insert("thinclient",data)
 
+		cls.commit()
+
 	@classmethod
 	def removeThinClient(cls, thinclient):
 		logging.debug("removing thinClient on DB")
@@ -69,6 +75,7 @@ class ThinClientHandler(DBHandler):
 		data = {"portnum": thinclient.port}
 
 		cls.cursor.execute(query, data)
+		cls.commit()
 
 	@classmethod
 	def getThinClient(cls, port):

@@ -48,6 +48,15 @@ class DBHandlertestSuite(unittest.TestCase):
 
 		self.assertEqual(dbhandler.DBHandler.cursor, sqlite.connect().cursor())
 
+	@patch('dbhandler.sqlite3')
+	def testCommit(self, sqlite):
+		dbhandler.DBHandler.conn = Mock()
+		dbhandler.DBHandler.conn.commit = Mock()
+
+		dbhandler.DBHandler.commit()
+
+		assert dbhandler.DBHandler.conn.commit.called
+
 	def testCloseDB(self):
 		pass
 
@@ -129,6 +138,7 @@ class ThinClientHandlerTestSuite(unittest.TestCase):
 		dbhandler.DBHandler.cursor.execute.assert_called_with(query, data)
 
 	def testAddThinClient(self):
+		dbhandler.DBHandler.commit = Mock()
 		dbhandler.DBHandler.insert = Mock()
 		thinclient = Mock()
 		thinclient.ipAddress = '10.18.221.218'
@@ -140,7 +150,17 @@ class ThinClientHandlerTestSuite(unittest.TestCase):
 
 		dbhandler.DBHandler.insert.assert_called_with('thinclient', data)
 
+	def testAddThinClient_commitChange(self):
+		dbhandler.DBHandler.insert = Mock()
+		thinclient = Mock()
+		dbhandler.DBHandler.commit = Mock()
+
+		dbhandler.ThinClientHandler.addThinClient(thinclient)
+
+		assert dbhandler.DBHandler.commit.called
+
 	def testRemoveThinClient_byPort(self):
+		dbhandler.DBHandler.commit = Mock()
 		thinclient = Mock()
 		thinclient.ipAddress = '10.18.221.218'
 		thinclient.port = 16
@@ -152,6 +172,15 @@ class ThinClientHandlerTestSuite(unittest.TestCase):
 		dbhandler.ThinClientHandler.removeThinClient(thinclient)
 
 		dbhandler.DBHandler.cursor.execute.assert_called_with(query, data)
+
+	def testRemoveThinClientbyPort_commitChange(self):
+		thinclient = Mock()
+		dbhandler.DBHandler.commit = Mock()
+
+		dbhandler.ThinClientHandler.removeThinClient(thinclient)
+
+		assert dbhandler.DBHandler.commit.called
+
 
 	@patch('dbhandler.ThinClient')
 	def testGetThinClient_byPort(self, thinclient):
