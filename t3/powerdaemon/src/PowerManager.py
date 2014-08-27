@@ -75,8 +75,11 @@ class Command():
     REDUCE_POWER = '\x03'
     POSTPONE = '1'
     POENOTIF = '\x07'
+    SWITCHREADY = '\x09'
+
 
     #from RDP
+    RDPNOTIF ='\x08'
     UPDATE = '\x0A'
 
 class ServerNotifs():
@@ -653,7 +656,8 @@ class PowerManager(DatagramProtocol):
         if payload[1] == '\x01': #true
             #still thinking of doing callback here
             self.powerUpPoE(port+1)
-            d = task.deferLater(reactor, 5, Mapper.addNewThinClient, port)
+            #grace period of 25sec from PoE power to bootup of thinClient
+            d = task.deferLater(reactor, 25, Mapper.addNewThinClient, port)
             if not self.thinClientsInitialized:
                 self.PoECounter = self.PoECounter + 1
             ret = d
@@ -747,6 +751,25 @@ class PowerManager(DatagramProtocol):
         d = self.sendIPMICommand(params)  
         return d  
 
+    def powerDownPoE(self, port):
+        logging.info("removing power to PoE port %d" % port)
+
+        params = []
+        params.append('-H')
+        params.append(Switch.IPADDRESS)
+        params.append('-U')
+        params.append(Switch.USERNAME)
+        params.append('-P')
+        params.append(Switch.PASSWORD)
+        params.append('raw')
+        params.append(Switch.TCPOWERCMD1)
+        params.append(Switch.TCPOWERCMD2)
+        params.append(hex(port))
+        params.append(Switch.OFF)    
+
+        d = self.sendIPMICommand(params)
+        return d
+
     def powerDownThinClients(self):
         logging.debug("preparing IPMI command for thinclient powerdown via switch")
         params = []
@@ -791,8 +814,7 @@ class PowerManager(DatagramProtocol):
     def datagramReceived(self, data, (host, port)):
         self.address = (host, port)
         logging.info("datagram received with length %d" % len(data))
-        self.processCommand(data)
-        
+        self.processCommand(data)      
 
     def updateTCDatabase(self):
         

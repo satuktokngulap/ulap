@@ -4,10 +4,10 @@ from twisted.internet import defer, reactor
 from twisted.trial import unittest
 
 from PowerManager import PowerManagerFactory, PowerManager
-from PowerManager import NodeA, NodeB, ServerState, Switch, Command, Conf, ThinClient, MasterTC
+from powermodels import NodeA, NodeB, ServerState, Switch, Conf, ThinClient, MasterTC
 from PowerManager import PowerState, Power
 from PowerManager import IPMISecurity
-from PowerManager import ServerNotifs
+from PowerManager import ServerNotifs, Command
 
 from Crypto.Cipher import AES
 from datetime import datetime, date, time, timedelta
@@ -571,7 +571,7 @@ class PowerManagerTestSuite(unittest.TestCase):
 
         ret = self.powerManager.evaluatePoENotif(payload)
 
-        task.deferLater.assert_called_with(reactor, 5, mapper.addNewThinClient,portnum)
+        task.deferLater.assert_called_with(reactor, 25, mapper.addNewThinClient,portnum)
         self.assertEqual(3, self.powerManager.PoECounter)
 
     @patch('PowerManager.Mapper')
@@ -629,6 +629,27 @@ class PowerManagerTestSuite(unittest.TestCase):
         ret = self.powerManager.evaluatePoENotif(payload)
 
         self.powerManager.powerUpPoE.assert_called_with(port)
+
+    def testReceivedRDPRequest(self):
+        cmd = []
+        cmd.append(Command.RDPREQUEST)
+        cmd.append('\x0B') #portnumber
+        cmd.append('\x01') #enabled/disabled
+        payload = ['\x0B','\x01']
+
+        self.powerManager.processCommand(cmd)
+
+        self.powerManager.evaluateRDPRequest.assert_called_with(payload)
+
+    def testSendNotificationToRDP(self):
+        self.powerManager.transport = Mock()
+        notif = []
+
+        self.powerManager.sendNotificationToRDP
+
+        self.powerManager.transport.write.assert_called_with(ThinClient)
+
+    testSendNotificationToRDP.skip = "not yet complete"
 
     def testStartShutdown_ShutdownPostponed(self):
         NodeA.shuttingDownPostponed = True
@@ -802,6 +823,26 @@ class PowerManagerTestSuite(unittest.TestCase):
         params.append(Switch.ON)
 
         d = self.powerManager.powerUpPoE(num)
+
+        self.powerManager.sendIPMICommand.assert_called_with(params)
+
+    def testPowerDownPoE(self):
+        self.powerManager.sendIPMICommand = Mock()
+        port = 7
+        params = []
+        params.append('-H')
+        params.append(Switch.IPADDRESS)
+        params.append('-U')
+        params.append(Switch.USERNAME)
+        params.append('-P')
+        params.append(Switch.PASSWORD)
+        params.append('raw')
+        params.append(Switch.TCPOWERCMD1)
+        params.append(Switch.TCPOWERCMD2)
+        params.append(hex(port))
+        params.append(Switch.OFF)    
+
+        d = self.powerManager.powerDownPoE(port)
 
         self.powerManager.sendIPMICommand.assert_called_with(params)
 
