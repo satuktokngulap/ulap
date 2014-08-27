@@ -24,6 +24,7 @@ from ipaddressfinder import IPAddressFinder
 from powermodels import Conf, NodeA, NodeB, Switch, ThinClient, Power, MasterTC
 from powermodels import ServerState, PowerState, SwitchState
 from mapper import Mapper
+from dbhandler import DBHandler
 
 #change on deployment
 from configreader import fillAllDefaults
@@ -79,7 +80,7 @@ class Command():
 
 
     #from RDP
-    RDPNOTIF ='\x08'
+    RDPREQUEST ='\x08'
     UPDATE = '\x0A'
 
 class ServerNotifs():
@@ -633,6 +634,9 @@ class PowerManager(DatagramProtocol):
             logging.debug("PoE notif from switch received")
             #self.waitingForPoEConfirm = False
             self.evaluatePoENotif(payload)
+        elif command == Command.RDPREQUEST:
+            logging.debug("notification from RDP received")
+            pass
 
     #the scenario assumes that the port number matches the PoECounter
     #if not matching, I'm not sure of the next action
@@ -844,6 +848,7 @@ if __name__ == "__main__":
     fillAllDefaults("/etc/power_mgmt.cfg")
     FORMAT = '%(asctime)-15s %(message)s'
     logging.basicConfig(filename=Conf.LOGFILE,level=Conf.LOGLEVEL, format=FORMAT)
+    DBHandler.openDB(Conf.MAPFILE)
     #run reactor
     powerManager = PowerManager()
     virtualIP = powerManager.getVirtualIP()
