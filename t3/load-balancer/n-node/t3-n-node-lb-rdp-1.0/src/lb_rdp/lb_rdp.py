@@ -32,7 +32,7 @@ class LoadException(RDPException):
 #  UTILS
 ###
 
-def cli_call(cmd_str, suppress_warnings=False):
+def cli_call(cmd_str):
     """
         Executes the shell command <cmd_str> and returns the output,
         otherwise raises an error, if any is encountered.
@@ -93,7 +93,7 @@ class RdpLoadBalancer:
             derived from the source IP address of <client_ip>.
         """
         cli_cmd = "netstat -antlp"
-        stdout, stderr = cli_call(cli_cmd, suppress_warnings=True)
+        stdout = cli_call(cli_cmd)
 
         cur_ses, has_dup = self.count_xrdp_connections(stdout, client_ip)
         max_ses = cli_call("grep -m 1 '^MaxSessions=' /etc/xrdp/sesman.ini").partition("=")[2].rstrip()

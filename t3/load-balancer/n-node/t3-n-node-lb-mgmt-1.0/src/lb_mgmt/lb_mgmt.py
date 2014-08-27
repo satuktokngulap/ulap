@@ -109,6 +109,9 @@ class MgmtLoadBalancer:
                 data_list.append(int(data))
             return data_list
 
+        except ValueError:
+            return None
+
         except socket.timeout:
             return None
 
