@@ -3,7 +3,7 @@ import logging, socket
 #Power Conf class
 class Conf():
     LOGFILE = '/var/log/PowerManagerDeamon.log'
-    MACFILE = ''
+    MAPFILE = ''
     LOGLEVEL = logging.DEBUG
     SCHEDULESHUTDOWN = False
     TESTMODE = False

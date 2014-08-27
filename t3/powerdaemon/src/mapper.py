@@ -4,6 +4,7 @@
 
 from powermodels import ThinClient, MgmtVM
 from twisted.internet import defer, utils
+from dbhandler import ThinClientHandler
 
 import subprocess, logging, shlex, os
 
@@ -31,6 +32,7 @@ class Mapper():
 	 	d = cls.getDHCPDetails()
 	 	d.addCallback(cls.getTouple)
 	 	d.addCallback(cls.addTCToList, portnum)
+	 	d.addCallback(ThinClientHandler.addThinClient)
 
 	 	return d
 
@@ -66,6 +68,8 @@ class Mapper():
 		thinclient = ThinClient(tctuple, port)
 		cls.thinClientsList.append(thinclient)
 
+		return defer.succeed(thinclient)
+
 	@classmethod
 	def addNullThinClient(cls, portnum):
 		cls.thinClientsList.append(ThinClient((None,None), portnum))
@@ -75,6 +79,7 @@ class Mapper():
 		logging.debug("removing thinClient with portnum %d" % portnum)
 		for tc in cls.thinClientsList:
 			if tc.port == portnum:
+				ThinClientHandler.removeThinClient(tc)
 				cls.thinClientsList.remove(tc)
 
 

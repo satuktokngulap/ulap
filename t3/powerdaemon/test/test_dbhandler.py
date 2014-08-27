@@ -7,7 +7,7 @@ from twisted.trial import unittest
 import dbhandler
 import sqlite3
 
-from powermodels import ThinClient
+from powermodels import ThinClient, Conf
 
 
 class DBHandlertestSuite(unittest.TestCase):
@@ -29,6 +29,24 @@ class DBHandlertestSuite(unittest.TestCase):
 		sqlite.connect.assert_called_with(self.dbfile)
 		self.assertEqual(dbhandler.DBHandler.conn, sqlite.connect())
 		self.assertEqual(dbhandler.DBHandler.cursor, dbhandler.DBHandler.conn.cursor())
+	
+	@patch('dbhandler.sqlite3')
+	def testOpenDBFromConfig(self, sqlite):
+		dbhandler.DBHandler.openDBFromConfigFile()
+
+		sqlite.connect.assert_called_with(Conf.MAPFILE)
+
+	@patch('dbhandler.sqlite3')
+	def testOpenDBFromConfig_createConnection(self, sqlite):
+		dbhandler.DBHandler.openDBFromConfigFile()
+
+		self.assertEqual(dbhandler.DBHandler.conn, sqlite.connect())
+
+	@patch('dbhandler.sqlite3')
+	def testOpenDBFromConfig_createcursor(self, sqlite):
+		dbhandler.DBHandler.openDBFromConfigFile()
+
+		self.assertEqual(dbhandler.DBHandler.cursor, sqlite.connect().cursor())
 
 	def testCloseDB(self):
 		pass

@@ -391,15 +391,14 @@ class PowerManagerTestSuite(unittest.TestCase):
         parser().get = Mock(side_effect=['94-00-F4-35-FE-94'\
             ,'94-00-F4-35-FE-95'\
             ,'94-00-F4-35-FE-9D'])
-        # parser.get.side_effect = ['94-00-F4-35-FE-94'\
-        #     ,'94-00-F4-35-FE-95'\
-        #     , '94-00-F4-35-FE-9D']
         mac = '94-00-F4-35-FE-9D'
         port = '0x2'
 
         portfromconfig = self.powerManager.getPortNumberFromMac(mac)
 
         self.assertEqual(port, portfromconfig)
+
+    testGetPortNumberFromMac.skip = "unused or deprecated"
 
     @patch('PowerManager.Mapper')
     @patch('PowerManager.timer') #mock to avoid actual sleep on test
@@ -562,8 +561,9 @@ class PowerManagerTestSuite(unittest.TestCase):
 
         self.powerManager.evaluatePoENotif.assert_called_with(payload)
 
+    @patch('PowerManager.task')
     @patch('PowerManager.Mapper')
-    def testEvaluatePoENotif_PoEConnectionExists(self, mapper):
+    def testEvaluatePoENotif_PoEConnectionExists(self, mapper, task):
         payload = ['\x07','\x01']
         portnum = 7
         self.powerManager.PoECounter = 2
@@ -571,7 +571,7 @@ class PowerManagerTestSuite(unittest.TestCase):
 
         ret = self.powerManager.evaluatePoENotif(payload)
 
-        mapper.addNewThinClient.assert_called_with(portnum)
+        task.deferLater.assert_called_with(reactor, 5, mapper.addNewThinClient,portnum)
         self.assertEqual(3, self.powerManager.PoECounter)
 
     @patch('PowerManager.Mapper')
@@ -606,8 +606,9 @@ class PowerManagerTestSuite(unittest.TestCase):
 
         self.assertEqual(self.powerManager.thinClientsInitialized, True)
 
+    @patch('PowerManager.task')
     @patch('PowerManager.Mapper')
-    def testEvaluatePoENotif_TCFinishedInializing(self, mapper):
+    def testEvaluatePoENotif_TCFinishedInializing(self, mapper, task):
         Conf.MAXCLIENTS = 16
         self.powerManager.PoECounter = 16
         payload = ['\x0F', '\x01']
@@ -618,8 +619,9 @@ class PowerManagerTestSuite(unittest.TestCase):
 
         self.assertEqual(self.powerManager.thinClientsInitialized, True)
 
+    @patch('PowerManager.task')
     @patch('PowerManager.Mapper')
-    def testEvaluatePoENotif_PowerUpNextPoE(self, mapper):
+    def testEvaluatePoENotif_PowerUpNextPoE(self, mapper, task):
         payload = ['\x07','\x01']
         port = 8
         self.powerManager.powerUpPoE = Mock()
