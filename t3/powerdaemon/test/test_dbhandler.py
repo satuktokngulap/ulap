@@ -67,7 +67,7 @@ class DBHandlertestSuite(unittest.TestCase):
 		data = ('sampledata', 1, 2.3)
 		placeholder = "?,?,?,"
 		dbhandler.DBHandler.cursor = Mock()
-		query = "INSERT INTO sampletable VALUES (?,?,?,)"
+		query = "INSERT INTO sampletable VALUES (?,?,?)"
 
 		#assumes correct table, format and data	
 		dbhandler.DBHandler.insert(table, data)

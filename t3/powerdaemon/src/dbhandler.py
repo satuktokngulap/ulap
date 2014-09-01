@@ -30,6 +30,7 @@ class DBHandler():
 		query = "INSERT INTO %s VALUES (" % table 
 		for n in range(numvalues):
 			query = query+"?,"
+		query = query[:-1]
 		query = query+")"
 		cls.cursor.execute(query,data)
 
