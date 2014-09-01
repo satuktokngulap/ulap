@@ -7,11 +7,13 @@ from twisted.internet import defer, utils
 from dbhandler import ThinClientHandler
 
 import subprocess, logging, shlex, os
+import json
 
 class Mapper():
 
     thinClientsList = []
     toupleFile = '/tmp/touple'
+    jsonfile = '/tmp/map.json'
 
     @classmethod
     def resetLeases(cls):
@@ -64,7 +66,7 @@ class Mapper():
     #required tuple and port. only compatible for getTouple for chaining
     @classmethod
     def addTCToList(cls, tctuple, port):
-        logging.debug("adding thinClient %s %s" % tctuple, port)
+        logging.debug("adding thinClient %s,%s %s" % (tctuple[0],tctuple[1], port))
         thinclient = ThinClient(tctuple, port)
         cls.thinClientsList.append(thinclient)
 
@@ -83,6 +85,35 @@ class Mapper():
                 cls.thinClientsList.remove(tc)
 
     @classmethod
+    def createSerializedThinClientData(cls):
+        outputlist = []
+        for tc in cls.thinClientsList:
+            ip = tc.getIPAddress()
+            mac = tc.getMacAddress()
+            port = tc.getSwitchPoEPort()
+            outputlist.append({'ip': ip, 'mac': mac, 'port': port})
+
+        return outputlist
+
+    @classmethod
+    def writeDataToFile(cls, data):
+        jsonfile = open(cls.jsonfile, 'w')
+        jsonfile.write(json.dumps(data, sort_keys=True, indent=4\
+            ,separators=(',',':')))
+        jsonfile.close()
+
+    @classmethod
+    def sendJSONDataToRDP(cls):
+        cmd = '/usr/bin/scp'
+        paramsRDPa=['/tmp/map.json', ThinClient.SERVERA_ADDR[0], '/tmp']
+        paramsRDPb=['/tmp/map.json', ThinClient.SERVERB_ADDR[0], '/tmp']
+        d1 = utils.getProcessOutput(cmd, paramsRDPa)
+        d2 = utils.getProcessOutput(cmd, paramsRDPb)
+
+        d = defer.DeferredList(d1, d2)
+        return d
+
+    @classmethod
     def getSessionIPGivenSessionID(cls, text, ID):
         text = text.split()
         ret = None
@@ -92,6 +123,8 @@ class Mapper():
                     ret = text[text.index(word)+2][3:]
 
         return ret
+
+
 
     @classmethod
     def storeClientsToDB(cls):

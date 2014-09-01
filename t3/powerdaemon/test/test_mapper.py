@@ -21,7 +21,7 @@ class MapperTestsuite(unittest.TestCase):
         reload(mapper)
 
     #top level function for new updates
-    #triggered by notification from switch
+    #triggered by notification from switchx
     #or ThinClient
     def testUpdateMap(self):
         pass
@@ -58,8 +58,6 @@ class MapperTestsuite(unittest.TestCase):
         d = mapper.Mapper.addNewThinClient(portnum)
 
         d.addCallback(self.assertEqual, 'end')
-
-
 
     #wrapper for dhcpd parser. Output: ipaddress,mac-address tuple
     @patch('mapper.utils')
@@ -200,3 +198,68 @@ class MapperTestsuite(unittest.TestCase):
     def testSearchBySessionID(self):
         pass
 
+    def testSendJSONMapToRDP(self):
+        mapper.Mapper.createSerializedThinClientData = Mock()
+        mapper.Mapper.writeDataToFile = Mock()
+        mapper.Mapper.sendJSONDataToRDP = Mock(return_value=defer.succeed(None))
+
+
+    testSendJSONMapToRDP.skip = 'not completed'
+
+    #this test assumes correct constructor for ThinClient object
+    #should be using mocks instead
+    def testCreateSerializedThinClientData(self):
+        tc1 = ThinClient(('172.16.1.81', 'qw:ir:as:df:12:34:56'), 7)
+        tc2 = ThinClient(('172.16.1.82', 'qw:ir:ad:sf:12:34:56'), 8)
+        mapper.Mapper.thinClientsList = [tc1, tc2]
+        expected = [{'ip': '172.16.1.81' ,'mac': 'qw:ir:as:df:12:34:56','port':7}\
+            ,{'ip':'172.16.1.82','mac':'qw:ir:ad:sf:12:34:56','port':8}]
+
+        outputData = mapper.Mapper.createSerializedThinClientData()
+
+        self.assertEqual(outputData, expected)
+
+    @patch('mapper.json')
+    @patch('__builtin__.open')
+    def testWriteDataToFile(self, fileopen, json):
+        data = [{},{}]
+
+        mapper.Mapper.writeDataToFile(data)
+
+        fileopen().write.assert_called_with(json.dumps())
+
+    @patch('mapper.json')
+    @patch('__builtin__.open')
+    def testWriteDataToFile_correctJsonCall(self,fileopen, json):
+        data = [{},{}]
+
+        mapper.Mapper.writeDataToFile(data)
+
+        json.dumps.assert_called_with(data, sort_keys=True, indent=4, \
+                separators=(',',':'))
+
+    @patch('mapper.defer.DeferredList')
+    @patch('mapper.utils.getProcessOutput')
+    def testSendDataToRDPServers_correctgetProcess(self, process, deferredlist):
+        cmd = '/usr/bin/scp'
+        params1=['/tmp/map.json', ThinClient.SERVERA_ADDR[0], '/tmp']
+        params2=['/tmp/map.json', ThinClient.SERVERB_ADDR[0], '/tmp']
+        call1 = call(cmd, params1)
+        call2 = call(cmd, params2)
+        calls_list = [call1, call2]
+
+        d =mapper.Mapper.sendJSONDataToRDP()
+
+        process.assert_has_calls(calls_list)
+
+    @patch('mapper.defer.DeferredList')
+    @patch('mapper.utils.getProcessOutput')
+    def testSendDataToRDPServers_correctdeferredList(self, process, deferredlist):
+
+        d = mapper.Mapper.sendJSONDataToRDP()
+
+        deferredlist.assert_called_with(process(), process())
+
+    #call a deferLater to try again
+    def testSendDataToRDPServer_SCPFails(self):
+        pass
