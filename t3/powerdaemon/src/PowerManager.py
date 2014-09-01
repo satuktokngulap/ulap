@@ -68,6 +68,9 @@ class Command():
     #switch commands & notifications
     SHUTDOWN_IMMEDIATE = '\x05'
     AC_RESTORED = '\x02'
+    KEEPALIVE = '\x04'
+    SWITCHREADY = '\x0C'
+
     
     #thinclient commands & notifications
     SHUTDOWN_CANCEL = '\x09'
@@ -76,11 +79,10 @@ class Command():
     REDUCE_POWER = '\x03'
     POSTPONE = '1'
     POENOTIF = '\x07'
-    SWITCHREADY = '\x09'
 
 
     #from RDP
-    RDPREQUEST ='\x08'
+    RDPREQUEST ='\x0B'
     UPDATE = '\x0A'
 
 class ServerNotifs():
@@ -636,7 +638,13 @@ class PowerManager(DatagramProtocol):
             self.evaluatePoENotif(payload)
         elif command == Command.RDPREQUEST:
             logging.debug("notification from RDP received")
-            pass
+            self.evaluateRDPRequest(payload)
+        elif command == Command.KEEPALIVE:
+            self.transport.write(command, Switch.IPADDRESS, 8880)
+            logging.debug('replying to switch Checkalive packet')
+        elif command == Command.SWITCHREADY:
+            self.readyPorts = ord(payload)
+            logging.debug('switch sents ready ports on startup')
 
     #the scenario assumes that the port number matches the PoECounter
     #if not matching, I'm not sure of the next action
@@ -658,20 +666,29 @@ class PowerManager(DatagramProtocol):
             self.thinClientsInitialized = True
 
         if payload[1] == '\x01': #true
-            #still thinking of doing callback here
-            self.powerUpPoE(port+1)
+            d1 = self.powerUpPoE(port+1)
             #grace period of 25sec from PoE power to bootup of thinClient
-            d = task.deferLater(reactor, 25, Mapper.addNewThinClient, port)
+            d2 = task.deferLater(reactor, 25, Mapper.addNewThinClient, port)
             if not self.thinClientsInitialized:
                 self.PoECounter = self.PoECounter + 1
-            ret = d
-        elif payload[1] == '\x00' and self.thinClientsInitialized == True:
+            ret = d1
+        elif payload[1] == '\x00':
             d = Mapper.removeThinClient(port)
+            if self.thinClientsInitialized == False:
+                self.PoECounter = self.PoECounter + 1
             ret = d
         else:
             logging.debug("PoE on port %d failed. LAN cable probably disconnected" % port)
             self.PoECounter = self.PoECounter + 1
             
+    def evaluateRDPRequest(self, payload):
+        tc = ord(payload[0])
+        requestedState = ord(payload[1])
+
+        if requestedState == 0:
+            Mapper.removeThinClient(tc)
+            d = self.powerDownPoE(tc)
+
     #TODO: remove 
     def initializeThinClient(self):
         logging.debug("initializing an active ThinClient")

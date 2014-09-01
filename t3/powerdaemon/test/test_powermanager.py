@@ -630,12 +630,42 @@ class PowerManagerTestSuite(unittest.TestCase):
 
         self.powerManager.powerUpPoE.assert_called_with(port)
 
+    @patch('PowerManager.Mapper')
+    def testEvaluatePoENotif_TCRemovedDuringInitialization(self, mapper):
+        self.powerManager.thinClientsInitialized = False
+        payload = ['\x07', '\x00']
+        self.powerManager.PoECounter = 2
+
+        self.powerManager.evaluatePoENotif(payload)
+
+        self.assertEqual(self.powerManager.PoECounter, 3)
+
+    def testEvaluateRDPRequest_turnOffTC(self):
+        payload=['\x08','\x00']
+        port = 8
+        self.powerManager.powerDownPoE = Mock()
+
+        self.powerManager.evaluateRDPRequest(payload)
+
+        self.powerManager.powerDownPoE.assert_called_with(port)
+
+    @patch('PowerManager.Mapper')
+    def testEvaluateRDPRequest_removeTCOnMap(self, mapper):
+        payload=['\x08','\x00']
+        port = 8
+        self.powerManager.powerDownPoE = Mock(return_value=defer.succeed(None))
+
+        self.powerManager.evaluateRDPRequest(payload)
+
+        mapper.removeThinClient.assert_called_with(port)
+
     def testReceivedRDPRequest(self):
         cmd = []
         cmd.append(Command.RDPREQUEST)
         cmd.append('\x0B') #portnumber
-        cmd.append('\x01') #enabled/disabled
-        payload = ['\x0B','\x01']
+        cmd.append('\x00') #requested power 
+        payload = ['\x0B','\x00']
+        self.powerManager.evaluateRDPRequest = Mock()
 
         self.powerManager.processCommand(cmd)
 
@@ -650,6 +680,23 @@ class PowerManagerTestSuite(unittest.TestCase):
         self.powerManager.transport.write.assert_called_with(ThinClient)
 
     testSendNotificationToRDP.skip = "not yet complete"
+
+    def tesReceivedCheckAliveRequest(self):
+        cmd = Command.KEEPALIVE
+        self.powerManager.transport = Mock()
+
+        self.powerManager.processCommand(cmd)
+
+        self.powerManager.transport.write.assert_called_with(cmd, Switch.IPADDRESS, 8880)
+
+    def testReceivedSwitchReady(self):
+        cmd = Command.SWITCHREADY
+        payload = '\x0E'
+        msg = '\x0C\x0E'
+
+        self.powerManager.processCommand(msg)
+
+        self.assertEqual(self.powerManager.readyPorts, 14)
 
     def testStartShutdown_ShutdownPostponed(self):
         NodeA.shuttingDownPostponed = True
