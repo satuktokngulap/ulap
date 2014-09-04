@@ -48,13 +48,14 @@ class DBHandler():
 
 class ThinClientHandler(DBHandler):
 
-
+	
 	@classmethod
-	def updateThinClientWithPort(cls, ipaddress, port):
+	def updateThinClientWithPort(cls, ipaddress, macaddress, port):
 		logging.debug("updating DB entry for ThinClient with port %d" % port)
-		data = {"ipaddress": ipaddress , "portnum": port }
+		data = {"ipaddress": ipaddress , "macaddress": macaddress, "portnum": port }
 		query = "UPDATE thinclient SET \
 			ipaddress=:ipaddress \
+			,macaddress=:macaddress \
 			WHERE portnum=:portnum"
 
 		cls.cursor.execute(query, data)
@@ -62,9 +63,14 @@ class ThinClientHandler(DBHandler):
 	#recieves thinclient object
 	@classmethod
 	def addThinClient(cls, thinclient):
-		data = (thinclient.ipAddress, thinclient.macAddress, thinclient.port)
-
-		cls.insert("thinclient",data)
+		tc = cls.getThinClient(thinclient.port)
+		if tc is None:
+			logging.debug("new TC entry, adding to DB")
+			data = (thinclient.ipAddress, thinclient.macAddress, thinclient.port)
+			cls.insert("thinclient", data)
+		else: 
+			logging.debug("existing entry, updating db instead")
+			cls.updateThinClientWithPort(thinclient.ipAddress, thinclient.macAddress, thinclient.port)
 
 		cls.commit()
 
@@ -85,8 +91,8 @@ class ThinClientHandler(DBHandler):
 		tc = None
 		TClist = cls.cursor.execute(query, {"portnum": port})
 		for row in TClist:
-			if row[0] == port:
-				tc = ThinClient((str(row[1]), str(row[2])), row[0])
+			if row[2] == port:
+				tc = ThinClient((str(row[0]), str(row[1])), row[2])
 				break
 		return tc
 

@@ -121,19 +121,22 @@ class ThinClientHandlerTestSuite(unittest.TestCase):
 
 	def setUp(self):
 		dbhandler.DBHandler.cursor = Mock()
+		self.cursor = dbhandler.DBHandler.cursor
 
 	def tearDown(self):
 		reload(dbhandler)
 
-	def testUpdateThinClientWithPort_IPAddress(self):
+	def testUpdateThinClientWithPort_IPAndMac(self):
 		query = "UPDATE thinclient SET \
 			ipaddress=:ipaddress \
+			,macaddress=:macaddress \
 			WHERE portnum=:portnum"
 		port = 11
 		ipaddress ="10.234.1.2"
-		data = {"ipaddress": ipaddress, "portnum": port}
+		macaddress="as:12:we:34:rt:23"
+		data = {"ipaddress": ipaddress, "macaddress": macaddress, "portnum": port}
 
-		dbhandler.ThinClientHandler.updateThinClientWithPort(ipaddress, port)
+		dbhandler.ThinClientHandler.updateThinClientWithPort(ipaddress, macaddress, port)
 
 		dbhandler.DBHandler.cursor.execute.assert_called_with(query, data)
 
@@ -150,14 +153,46 @@ class ThinClientHandlerTestSuite(unittest.TestCase):
 
 		dbhandler.DBHandler.insert.assert_called_with('thinclient', data)
 
+	testAddThinClient.skip = "newer unit test exist"
+
 	def testAddThinClient_commitChange(self):
 		dbhandler.DBHandler.insert = Mock()
+		dbhandler.ThinClientHandler.getThinClient = Mock(return_value=None)
 		thinclient = Mock()
 		dbhandler.DBHandler.commit = Mock()
 
 		dbhandler.ThinClientHandler.addThinClient(thinclient)
 
 		assert dbhandler.DBHandler.commit.called
+
+	def testAddThinClient_EntryDoesntExist(self):
+		dbhandler.DBHandler.insert = Mock()
+		dbhandler.ThinClientHandler.getThinClient = Mock(return_value=None)
+		dbhandler.DBHandler.commit = Mock()
+		thinclient = Mock(port=16,ipAddress='10.18.221.218',macAddress='as:12:we:34:rt:23')
+		data = (thinclient.ipAddress, thinclient.macAddress, thinclient.port)
+
+		dbhandler.ThinClientHandler.addThinClient(thinclient)
+
+		dbhandler.DBHandler.insert.assert_called_with('thinclient', data)
+
+	def testAddThinClient_EntryAlreadyExists(self):
+		oldTC = Mock()
+		dbhandler.ThinClientHandler.getThinClient = Mock(return_value=oldTC)
+		dbhandler.DBHandler.commit = Mock()
+		thinclient = Mock(port=16,ipAddress='10.18.221.218',macAddress='as:12:we:34:rt:23')
+		dbhandler.ThinClientHandler.updateThinClientWithPort = Mock()
+
+		dbhandler.ThinClientHandler.addThinClient(thinclient)
+
+		dbhandler.ThinClientHandler.updateThinClientWithPort.assert_called_with\
+			('10.18.221.218', 'as:12:we:34:rt:23', 16)
+
+
+	def testAddThinClient_WrongTCObject(self):
+		pass
+
+	testAddThinClient_WrongTCObject.skip = "TODO"
 
 	def testRemoveThinClient_byPort(self):
 		dbhandler.DBHandler.commit = Mock()
@@ -181,19 +216,28 @@ class ThinClientHandlerTestSuite(unittest.TestCase):
 
 		assert dbhandler.DBHandler.commit.called
 
+	def testGetThinClientWithPort(self):
+		port = 7
+		self.cursor.execute = Mock()
+		query = "SELECT * FROM thinclient WHERE portnum=:portnum"
+		data = {"portnum": port}
+
+		dbhandler.ThinClientHandler.getThinClientWithPort(port)
+
+		self.cursor.execute.assert_called_with(query, data)
+
+	testGetThinClientWithPort.skip = "not needed"
 
 	@patch('dbhandler.ThinClient')
 	def testGetThinClient_byPort(self, thinclient):
 		query = "SELECT * FROM thinclient WHERE portnum=:portnum"
 		port = 5
-		row = [(5, u'10.25.124.111', u'as:12:we:34:rt:23')]
+		row = [(u'10.25.124.111', u'as:12:we:34:rt:23', 5)]
 		ipaddress = '10.25.124.111'
 		macaddress = 'as:12:we:34:rt:23'
 		dbhandler.DBHandler.cursor.execute = MagicMock()
 		dbhandler.DBHandler.cursor.execute.return_value = row		
-		# dbhandler.DBHandler.cursor.execute.__iter__ = Mock()
-		# dbhandler.DBHandler.cursor.execute().next.return_value = row
-
+	
 		tc = dbhandler.ThinClientHandler.getThinClient(port)
 
 		thinclient.assert_called_with((ipaddress, macaddress), port)
