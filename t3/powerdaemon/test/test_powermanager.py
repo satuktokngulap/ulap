@@ -571,7 +571,8 @@ class PowerManagerTestSuite(unittest.TestCase):
 
         ret = self.powerManager.evaluatePoENotif(payload)
 
-        task.deferLater.assert_called_with(reactor, 25, mapper.addNewThinClient,portnum)
+        task.deferLater.assert_called_with(reactor, 1, mapper.addNewThinClient,portnum)
+        #mapper.addNewThinClient.assert_called_with(portnum)
         self.assertEqual(3, self.powerManager.PoECounter)
 
     @patch('PowerManager.Mapper')
@@ -625,10 +626,12 @@ class PowerManagerTestSuite(unittest.TestCase):
         payload = ['\x07','\x01']
         port = 8
         self.powerManager.powerUpPoE = Mock()
+        latercall = call(reactor, 5, self.powerManager, port)
 
         ret = self.powerManager.evaluatePoENotif(payload)
 
-        self.powerManager.powerUpPoE.assert_called_with(port)
+        task.deferLater.assert_has_call(latercall)
+        #self.powerManager.powerUpPoE.assert_called_with(port)
 
     @patch('PowerManager.Mapper')
     def testEvaluatePoENotif_TCRemovedDuringInitialization(self, mapper):
@@ -639,6 +642,10 @@ class PowerManagerTestSuite(unittest.TestCase):
         self.powerManager.evaluatePoENotif(payload)
 
         self.assertEqual(self.powerManager.PoECounter, 3)
+
+    #TODO
+    def testEvaluatePoENotif_PoEUpFail(self):
+        pass
 
     def testEvaluateRDPRequest_turnOffTC(self):
         payload=['\x08','\x00']
@@ -687,7 +694,7 @@ class PowerManagerTestSuite(unittest.TestCase):
 
         self.powerManager.processCommand(cmd)
 
-        self.powerManager.transport.write.assert_called_with(cmd, Switch.IPADDRESS, 8880)
+        self.powerManager.transport.write.assert_called_with(cmd, (Switch.IPADDRESS, 8880))
 
     def testReceivedSwitchReady(self):
         cmd = Command.SWITCHREADY
@@ -949,13 +956,15 @@ class PowerManagerTestSuite(unittest.TestCase):
     def testGrantShutdownRequest(self):
         pass
 
+    #deprecated normal shutdown call
     def testReceivedNormalShutdownCommand(self):
         cmd = Command.SHUTDOWN_NORMAL
         self.powerManager.normalShutdown = Mock()
 
         self.powerManager.processCommand(cmd)
         
-        assert self.powerManager.normalShutdown.called
+        #deprecated normal shutdown call
+        assert not self.powerManager.normalShutdown.called
 
     def testReceivedNormalShutdownCommand_CountdownStarted(self):
         cmd = Command.SHUTDOWN_REQUEST

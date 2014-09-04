@@ -418,7 +418,6 @@ class PowerManager(DatagramProtocol):
             d.addCallback(self._powerOff)
             d.addCallback(self._logExitValue)
             returnValue = d
-        #remove return?
         return returnValue
 
     def emergencyShutdown(self):
@@ -625,13 +624,13 @@ class PowerManager(DatagramProtocol):
                 self.grantShutdownRequest() 
         elif command == Command.SHUTDOWN_NORMAL:
             if NodeA.serverState == ServerState.COUNTDOWN_IN_PROGRESS:
-                print "hello"
+                logging.debug("shutdown already progressing. ignoring requests")
                 pass
             if NodeB.serverState == ServerState.COUNTDOWN_IN_PROGRESS:
-                print "world"
+                logging.debug("shutdown already progressing. ignoring requests")
                 pass
             else:
-                self.normalShutdown() 
+                logging.debug("deprecated normal shutdown requested. ignoring")
         elif command == Command.POENOTIF:
             logging.debug("PoE notif from switch received")
             #self.waitingForPoEConfirm = False
@@ -640,7 +639,7 @@ class PowerManager(DatagramProtocol):
             logging.debug("notification from RDP received")
             self.evaluateRDPRequest(payload)
         elif command == Command.KEEPALIVE:
-            self.transport.write(command, Switch.IPADDRESS, 8880)
+            self.transport.write(command, (Switch.IPADDRESS, 8880))
             logging.debug('replying to switch Checkalive packet')
         elif command == Command.SWITCHREADY:
             self.readyPorts = ord(payload)
@@ -666,9 +665,12 @@ class PowerManager(DatagramProtocol):
             self.thinClientsInitialized = True
 
         if payload[1] == '\x01': #true
-            d1 = self.powerUpPoE(port+1)
+            #d1 = self.powerUpPoE(port+1)
+            d1 = task.deferLater(reactor, 5, self.powerUpPoE, port+1)
+            #errback here needed
             #grace period of 25sec from PoE power to bootup of thinClient
-            d2 = task.deferLater(reactor, 25, Mapper.addNewThinClient, port)
+            d2 = task.deferLater(reactor, 1, Mapper.addNewThinClient, port)
+            #d2 = Mapper.addNewThinClient(port)
             if not self.thinClientsInitialized:
                 self.PoECounter = self.PoECounter + 1
             ret = d1
@@ -711,8 +713,8 @@ class PowerManager(DatagramProtocol):
             d = task.deferLater(reactor, self._timeFromShutdown(), self.normalShutdown)
         else:
             logging.debug("Daily shutdown schedule disabled")
-        #hack
-        d2 = task.deferLater(reactor, 15, self.powerUpThinClients)
+        #power up port 0
+        d2 = task.deferLater(reactor, 15, self.powerUpPoE, 0)
 
         #slightly hack, time is arbitrary
         #d3 = task.deferLater(reactor, 20, self.sendSyncTime)
