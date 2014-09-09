@@ -53,11 +53,12 @@ class MapperTestsuite(unittest.TestCase):
         mapper.Mapper.getDHCPDetails = Mock(return_value=defer.succeed(None))
         mapper.Mapper.addTCToList = Mock(return_value=defer.succeed('begin'))
         tchandler.addThinClient = Mock(return_value=defer.succeed('end'))
+        mapper.Mapper.sendMapToRDP = Mock(return_value=defer.succeed('true'))
         portnum = 9
 
         d = mapper.Mapper.addNewThinClient(portnum)
 
-        d.addCallback(self.assertEqual, 'end')
+        d.addCallback(self.assertEqual, 'true')
 
     #wrapper for dhcpd parser. Output: ipaddress,mac-address tuple
     @patch('mapper.utils')
@@ -87,7 +88,7 @@ class MapperTestsuite(unittest.TestCase):
     @patch('mapper.os')
     @patch('__builtin__.open')
     def testGetTouple_returnDeferred(self, fileopen, os):
-        TCID = '172.16.1.10,40:d8:55:0c:11:0a'
+        TCID = '172.16.1.10,40:d8:55:0c:11:0a\n'
         tupleID = ('172.16.1.10','40:d8:55:0c:11:0a')
         # fileopen().readline = Mock(return_value=TCID)
 
@@ -123,7 +124,6 @@ class MapperTestsuite(unittest.TestCase):
 
         d.addCallback(self.assertEqual, tc())
 
-
     #should not happen since thinclient is deleted as soon as it is disconnected
     @patch('mapper.ThinClient')
     def testAddTCToList_sameThinClient(self, tc):
@@ -135,6 +135,8 @@ class MapperTestsuite(unittest.TestCase):
         tc = Mock()
         tc.port = portnum
         mapper.Mapper.thinClientsList = [tc]
+        mapper.Mapper.sendMapToRDP = Mock(return_value=defer.succeed(None))
+
 
         mapper.Mapper.removeThinClient(portnum)
 
@@ -146,11 +148,24 @@ class MapperTestsuite(unittest.TestCase):
         tc = Mock()
         tc.port = portnum
         mapper.Mapper.thinClientsList = [tc]
+        mapper.Mapper.sendMapToRDP = Mock(return_value=defer.succeed(None))
+
 
         mapper.Mapper.removeThinClient(portnum)
 
         tchandler.removeThinClient.assert_called_with(tc)
 
+    @patch('mapper.ThinClientHandler')
+    def testRemoveThinClient_updateJSON(self, tchandler):
+        portnum = 7
+        tc = Mock()
+        tc.port = portnum
+        mapper.Mapper.thinClientsList = [tc]
+        mapper.Mapper.sendMapToRDP = Mock(return_value=defer.succeed(None))
+
+        d = mapper.Mapper.removeThinClient(portnum)
+
+        d.addCallback(self.assertEqual, None)
 
     @patch('mapper.ThinClient')
     def testAddNullThinClient(self, tc):
@@ -163,18 +178,36 @@ class MapperTestsuite(unittest.TestCase):
 
     #wrapper for calling XFinger
 
-    def testGetRDPSessionDetails(self):
-        
+    @patch('mapper.utils.getProcessOutput')
+    def testGetRDPSessionDetails(self, process):
+        cmd = '/usr/bin/ssh'
+        paramsRDP1 = '-o "StrictHostKeyChecking no" root@10.18.221.23 "python /opt/xfinger.sh"'
+        paramsRDP2 = '-o "StrictHostKeyChecking no" root@10.18.221.24 "python /opt/xfinger.sh"'
+        paramsRDP1 = shlex.split(paramsRDP1)
+        paramsRDP2 = shlex.split(paramsRDP2)
+        call1 = call(cmd, paramsRDP1)
+        call2 = call(cmd, paramsRDP2)
+        calls_list = [call1, call2]
 
-        mapper.Mapper.getRDPSessionDetails()
+        d = mapper.Mapper.getRDPSessionDetails()
 
-    testGetRDPSessionDetails.skip = "incomplete"
+        process.assertEqual_has_calls(calls_list)
 
-    #output is list of tuples, but not implemented for the meantime
+    #receives a list of tuple --> ([True/False], value)
     def testParseXFingerResults(self):
-        testString = 'UID=student20 PID=2128 IP= 172.16.1.130\nUID=student27 PID=3126 IP= 172.16.1.142'
+        testString1 = 'UID=student20 PID=2128 IP= 172.16.1.130\nUID=student27 PID=3126 IP= 172.16.1.142'
+        testString2 = 'UID=student21 PID=2138 IP= 172.16.1.131\nUID=student28 PID=3136 IP= 172.16.1.143'
+        results = [(True, testString1), (True, testString2)]
+        validList = [{"sessionid": 2128, "userid": 'student20', "ipaddress": '172.16.1.130'}\
+        ,{"sessionid": 3126, "userid": "student27", "ipaddress":'172.16.1.142' }\
+        ,{"sessionid": 2138, "userid": "student21", "ipaddress":'172.16.1.131' }\
+        ,{"sessionid": 3136, "userid": "student28", "ipaddress": '172.16.1.143' }]
+    
+    
+        sessionList = mapper.Mapper.parseXFingerResults(results)
 
-        mapper.Mapper.parseXFingerResults(testring)
+        self.assertEqual(sessionList, validList)
+
 
     testParseXFingerResults.skip ='pending for implementation'
 
@@ -198,13 +231,16 @@ class MapperTestsuite(unittest.TestCase):
     def testSearchBySessionID(self):
         pass
 
-    def testSendJSONMapToRDP(self):
-        mapper.Mapper.createSerializedThinClientData = Mock()
+    def testSendMapToRDP(self):
+        sampleOutput = [{'ip': '172.18.1.101', 'mac':'od:23:2x:df:hh:k9:nb', 'port': 9}]
+        mapper.Mapper.createSerializedThinClientData = Mock(return_value=sampleOutput)
         mapper.Mapper.writeDataToFile = Mock()
-        mapper.Mapper.sendJSONDataToRDP = Mock(return_value=defer.succeed(None))
+        mapper.Mapper.sendJSONDataToRDP = Mock(return_value=defer.succeed("success"))
 
+        d = mapper.Mapper.sendMapToRDP()
 
-    testSendJSONMapToRDP.skip = 'not completed'
+        mapper.Mapper.writeDataToFile.assert_called_with(sampleOutput)
+        d.addCallback(self.assertEqual, "success")
 
     #this test assumes correct constructor for ThinClient object
     #should be using mocks instead
@@ -242,8 +278,8 @@ class MapperTestsuite(unittest.TestCase):
     @patch('mapper.utils.getProcessOutput')
     def testSendDataToRDPServers_correctgetProcess(self, process, deferredlist):
         cmd = '/usr/bin/scp'
-        params1=['/tmp/map.json', ThinClient.SERVERA_ADDR[0], '/tmp']
-        params2=['/tmp/map.json', ThinClient.SERVERB_ADDR[0], '/tmp']
+        params1=['/tmp/map.json', 'rdpadmin@%s:/tmp' % ThinClient.SERVERA_ADDR[0]]
+        params2=['/tmp/map.json', 'rdpadmin@%s:/tmp' % ThinClient.SERVERB_ADDR[0]]
         call1 = call(cmd, params1)
         call2 = call(cmd, params2)
         calls_list = [call1, call2]
@@ -258,7 +294,7 @@ class MapperTestsuite(unittest.TestCase):
 
         d = mapper.Mapper.sendJSONDataToRDP()
 
-        deferredlist.assert_called_with(process(), process())
+        deferredlist.assert_called_with([process(), process()])
 
     #call a deferLater to try again
     def testSendDataToRDPServer_SCPFails(self):

@@ -83,6 +83,7 @@ class Command():
 
     #from RDP
     RDPREQUEST ='\x0B'
+    RDPSESSIONPOWER = '\x0D'
     UPDATE = '\x0A'
 
 class ServerNotifs():
@@ -644,6 +645,9 @@ class PowerManager(DatagramProtocol):
         elif command == Command.SWITCHREADY:
             self.readyPorts = ord(payload)
             logging.debug('switch sents ready ports on startup')
+        elif command == Command.RDPSESSIONPOWER:
+            logging.debug('Request from RDP/Epoptes for power control of a TC')
+            self.controlRDPSessionPower(payload)
 
     #the scenario assumes that the port number matches the PoECounter
     #if not matching, I'm not sure of the next action
@@ -684,12 +688,15 @@ class PowerManager(DatagramProtocol):
             self.PoECounter = self.PoECounter + 1
             
     def evaluateRDPRequest(self, payload):
-        tc = ord(payload[0])
+        tcport = ord(payload[0])
         requestedState = ord(payload[1])
 
         if requestedState == 0:
-            Mapper.removeThinClient(tc)
-            d = self.powerDownPoE(tc)
+            d = task.deferLater(reactor, 10, self.powerDownPoE, tcport)
+            d.addCallback(Mapper.removeThinClient, tcport)
+        elif requestedState == 1:
+            d = self.powerUpPoE(tcport)
+            d.addCallback(task.deferLater, reactor, 5, Mapper.addNewThinClient, tcport)
 
     #TODO: remove 
     def initializeThinClient(self):
@@ -703,7 +710,6 @@ class PowerManager(DatagramProtocol):
         d = self.powerUpPoE(self.PoECounter)
 
         return d
-
 
     def startProtocol(self):
         logging.info("Power Daemon has now started")

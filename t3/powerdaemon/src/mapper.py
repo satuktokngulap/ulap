@@ -35,6 +35,7 @@ class Mapper():
         d.addCallback(cls.getTouple)
         d.addCallback(cls.addTCToList, portnum)
         d.addCallback(ThinClientHandler.addThinClient)
+        d.addCallback(cls.sendMapToRDP)
 
         return d
 
@@ -52,14 +53,13 @@ class Mapper():
 
         return d
     
-
     @classmethod
     def getTouple(cls, touple=None):
         logging.debug("getting IP address Mac Address touple %s" % touple)
     
         if touple:
             splittedString = touple.split(',')
-        tupleID = (splittedString[0],splittedString[1])
+        tupleID = (splittedString[0],splittedString[1].rstrip())
     
         return defer.succeed(tupleID)
 
@@ -77,15 +77,26 @@ class Mapper():
         cls.thinClientsList.append(ThinClient((None,None), portnum))
 
     @classmethod
-    def removeThinClient(cls, portnum):
+    def removeThinClient(cls, *args, **kwargs):
+
+        #this enables the function to be used for callbacks
+        if len(args) == 2:
+            portnum = args[1]
+        else: 
+            portnum = args[0]
+
         logging.debug("removing thinClient with portnum %d" % portnum)
         for tc in cls.thinClientsList:
             if tc.port == portnum:
                 ThinClientHandler.removeThinClient(tc)
                 cls.thinClientsList.remove(tc)
 
+        d = cls.sendMapToRDP()
+        return d
+
     @classmethod
     def createSerializedThinClientData(cls):
+        logging.debug('creating serialized list')
         outputlist = []
         for tc in cls.thinClientsList:
             ip = tc.getIPAddress()
@@ -97,20 +108,31 @@ class Mapper():
 
     @classmethod
     def writeDataToFile(cls, data):
+        logging.debug('writing serialized list to file')
         jsonfile = open(cls.jsonfile, 'w')
         jsonfile.write(json.dumps(data, sort_keys=True, indent=4\
             ,separators=(',',':')))
-        jsonfile.close()
+        jsonfile.close()    
 
     @classmethod
     def sendJSONDataToRDP(cls):
+        logging.debug('sending JSON file to RDP VMs on tmp folder')
         cmd = '/usr/bin/scp'
-        paramsRDPa=['/tmp/map.json', ThinClient.SERVERA_ADDR[0], '/tmp']
-        paramsRDPb=['/tmp/map.json', ThinClient.SERVERB_ADDR[0], '/tmp']
+        paramsRDPa=['/tmp/map.json', 'rdpadmin@%s:/tmp' % ThinClient.SERVERA_ADDR[0]]
+        paramsRDPb=['/tmp/map.json', 'rdpadmin@%s:/tmp' % ThinClient.SERVERB_ADDR[0]]
         d1 = utils.getProcessOutput(cmd, paramsRDPa)
         d2 = utils.getProcessOutput(cmd, paramsRDPb)
 
-        d = defer.DeferredList(d1, d2)
+        d = defer.DeferredList([d1, d2])
+        return d
+
+    @classmethod
+    def sendMapToRDP(cls, value=None):
+        logging.debug('initiating construction of json file')
+        data = cls.createSerializedThinClientData()
+        cls.writeDataToFile(data)
+        d = cls.sendJSONDataToRDP()
+
         return d
 
     @classmethod
@@ -124,7 +146,19 @@ class Mapper():
 
         return ret
 
+    @classmethod
+    def getRDPSessionDetails(cls):
+        cmd = '/usr/bin/ssh'
+        paramsRDP1 = '-o "StrictHostKeyChecking no" root@%s "python /opt/xfinger.sh"' % ThinClient.SERVERA_ADDR[0]
+        paramsRDP2 = '-o "StrictHostKeyChecking no" root@%s "python /opt/xfinger.sh"' % ThinClient.SERVERB_ADDR[0]
+        paramsRDP1 = shlex.split(paramsRDP1)
+        paramsRDP2 = shlex.split(paramsRDP2)
 
+        d1 = utils.getProcessOutput(cmd, paramsRDP1)
+        d2 = utils.getProcessOutput(cmd, paramsRDP2)
+
+        d = defer.DeferredList([d1, d2])
+        return d
 
     @classmethod
     def storeClientsToDB(cls):
