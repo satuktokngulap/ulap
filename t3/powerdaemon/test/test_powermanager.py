@@ -3,14 +3,14 @@ from mock import Mock, call, patch
 from twisted.internet import defer, reactor
 from twisted.trial import unittest
 
-from cloudtop.daemon.PowerManager import PowerManagerFactory, PowerManager
-from cloudtop.daemon.PowerManager import NodeA, NodeB, ServerState, Switch, Command, Conf, ThinClient, MasterTC
-from cloudtop.daemon.PowerManager import PowerState, Power
-from cloudtop.daemon.PowerManager import IPMISecurity
-from cloudtop.daemon.PowerManager import ServerNotifs
+from PowerManager import PowerManagerFactory, PowerManager
+from powermodels import NodeA, NodeB, ServerState, Switch, Conf, ThinClient, MasterTC
+from PowerManager import PowerState, Power
+from PowerManager import IPMISecurity
+from PowerManager import ServerNotifs, Command
 
 from Crypto.Cipher import AES
-from datetime import datetime, date
+from datetime import datetime, date, time, timedelta
 
 #PowerManager Testsuite
 class PowerManagerTestSuite(unittest.TestCase):
@@ -25,11 +25,14 @@ class PowerManagerTestSuite(unittest.TestCase):
         NodeB.serverState = ServerState.ON
         NodeB.shuttingDownCancelled = False
         NodeB.shuttingDownPostponed = False
-        Conf.DAILYSHUTDOWN = True
+        Conf.SCHEDULESHUTDOWN = True
+        Conf.TESTMODE = True
         self.powerManager.shutdownDelay = None
         Power.state = PowerState.AC
+        self.waitingForPoEConfirm = False
+        self.powerManager.thinClientsInitialized = False
 
-    @patch('cloudtop.daemon.PowerManager.utils')
+    @patch('PowerManager.utils')
     def testCheckWhichNode(self, utils):
         cmd = '/usr/sbin/clustat'
         value = None
@@ -50,7 +53,7 @@ class PowerManagerTestSuite(unittest.TestCase):
         self.assertEqual(ret, 'sb.105134.cloudtop.ph')
 
     def testDatagramReceived(self):
-        data = 0x01
+        data = '\x05\x01'
         host = '10.225.3.31'
         port = 8888
         self.powerManager.processCommand = Mock()
@@ -70,6 +73,8 @@ class PowerManagerTestSuite(unittest.TestCase):
 
         assert self.powerManager.startShutdown.called
 
+    testProcessCommand_ShutdownFromOn.skip ='deprecated'
+
     def testProcessCommand_ReducedPowerMode(self):
         cmd = Command.REDUCE_POWER
         self.powerManager.executeReducedPowerMode = Mock()
@@ -80,7 +85,7 @@ class PowerManagerTestSuite(unittest.TestCase):
 
         assert self.powerManager.executeReducedPowerMode.called
 
-    @patch('cloudtop.daemon.PowerManager.utils')
+    @patch('PowerManager.utils')
     def testStartShutdown(self, utils):
         #Poweroff BOTH nodes
         utils.getProcessOutput = Mock()
@@ -89,17 +94,119 @@ class PowerManagerTestSuite(unittest.TestCase):
         self.powerManager.checkWhichNode.addCallback = Mock()
         self.powerManager.shutdownNeighbor = Mock()
         self.powerManager._logExitValue = Mock()
+        self.powerManager.sendIPMIAck = Mock()
+        self.powerManager.sendSyncTime = Mock()
+        self.powerManager.sendWakeUpTime = Mock()
+        self.powerManager.shutdownManagementVM = Mock()
+        self.powerManager.shutdownNFS = Mock()
+        self.powerManager.lockResources = Mock()
+        self.powerManager.shutdownLMS = Mock()
+        self.powerManager.shutdownRDPA = Mock()
+        self.powerManager.shutdownRDPB = Mock()
+        self.powerManager._powerOff = Mock()
 
         d = self.powerManager.startShutdown()
 
         self.assertEqual(NodeA.serverState, ServerState.SHUTDOWN_IN_PROGRESS)
         self.assertEqual(NodeB.serverState, ServerState.SHUTDOWN_IN_PROGRESS)
-        assert self.powerManager.powerDownThinClients.called
-        self.assertEqual(self.powerManager.powerDownThinClients().addCallback.call_args_list[0],call(self.powerManager.checkWhichNode))
-        self.assertEqual(self.powerManager.powerDownThinClients().addCallback.call_args_list[1],call(self.powerManager.shutdownNeighbor))
-        self.assertEqual(self.powerManager.powerDownThinClients().addCallback.call_args_list[2],call(self.powerManager._powerOff))
+        assert self.powerManager.sendIPMIAck.called
+        # self.assertEqual(self.powerManager.sendIPMIAck().addCallback.call_args_list[0],call(self.powerManager.sendIPMIAck))
+        self.assertEqual(self.powerManager.sendIPMIAck().addCallback.call_args_list[0],call(self.powerManager.sendSyncTime))
+        self.assertEqual(self.powerManager.sendIPMIAck().addCallback.call_args_list[1],call(self.powerManager.sendWakeUpTime))
+        self.assertEqual(self.powerManager.sendIPMIAck().addCallback.call_args_list[2],call(self.powerManager.lockResources))
+        self.assertEqual(self.powerManager.sendIPMIAck().addCallback.call_args_list[3],call(self.powerManager.shutdownManagementVM))
+        self.assertEqual(self.powerManager.sendIPMIAck().addCallback.call_args_list[4],call(self.powerManager.shutdownNFS))
+        self.assertEqual(self.powerManager.sendIPMIAck().addCallback.call_args_list[5],call(self.powerManager.shutdownLMS))
+        self.assertEqual(self.powerManager.sendIPMIAck().addCallback.call_args_list[6],call(self.powerManager.shutdownRDPA))
+        self.assertEqual(self.powerManager.sendIPMIAck().addCallback.call_args_list[7],call(self.powerManager.shutdownRDPB))
+        self.assertEqual(self.powerManager.sendIPMIAck().addCallback.call_args_list[8],call(self.powerManager.checkWhichNode))
+        self.assertEqual(self.powerManager.sendIPMIAck().addCallback.call_args_list[9],call(self.powerManager.shutdownNeighbor))
+        self.assertEqual(self.powerManager.sendIPMIAck().addCallback.call_args_list[10],call(self.powerManager._powerOff))
 
-    @patch('cloudtop.daemon.PowerManager.utils')
+
+    def testEmergencyShutdown(self):
+        self.powerManager.powerDownThinClients = Mock()
+        self.powerManager.checkWhichNode = Mock()
+        self.powerManager.shutdownNeighbor = Mock()
+        self.powerManager._logExitValue = Mock()
+        self.powerManager.sendIPMIAck = Mock()
+        self.powerManager.shutdownManagementVM = Mock()
+        self.powerManager.shutdownNFS = Mock()
+        self.powerManager.lockResources = Mock()
+        self.powerManager.shutdownLMS = Mock()
+        self.powerManager.shutdownRDPA = Mock()
+        self.powerManager.shutdownRDPB = Mock()
+        self.powerManager.sendSyncTime = Mock()
+        self.powerManager.resetWakeup = Mock()
+        self.powerManager._powerOff = Mock()
+
+
+        d = self.powerManager.emergencyShutdown()
+
+        # assert self.powerManager.powerDownThinClients.called
+        assert self.powerManager.sendIPMIAck.called
+        # self.assertEqual(self.powerManager.powerDownThinClients().addCallback.call_args_list[0],call(self.powerManager.sendIPMIAck))
+        self.assertEqual(self.powerManager.sendIPMIAck().addCallback.call_args_list[0],call(self.powerManager.sendSyncTime))
+        self.assertEqual(self.powerManager.sendIPMIAck().addCallback.call_args_list[1],call(self.powerManager.resetWakeup))
+        self.assertEqual(self.powerManager.sendIPMIAck().addCallback.call_args_list[2],call(self.powerManager.lockResources))
+        self.assertEqual(self.powerManager.sendIPMIAck().addCallback.call_args_list[3],call(self.powerManager.shutdownManagementVM))
+        self.assertEqual(self.powerManager.sendIPMIAck().addCallback.call_args_list[4],call(self.powerManager.shutdownNFS))
+        self.assertEqual(self.powerManager.sendIPMIAck().addCallback.call_args_list[5],call(self.powerManager.shutdownLMS))
+        self.assertEqual(self.powerManager.sendIPMIAck().addCallback.call_args_list[6],call(self.powerManager.shutdownRDPA))
+        self.assertEqual(self.powerManager.sendIPMIAck().addCallback.call_args_list[7],call(self.powerManager.shutdownRDPB))
+        self.assertEqual(self.powerManager.sendIPMIAck().addCallback.call_args_list[8],call(self.powerManager.checkWhichNode))
+        self.assertEqual(self.powerManager.sendIPMIAck().addCallback.call_args_list[9],call(self.powerManager.shutdownNeighbor))
+        self.assertEqual(self.powerManager.sendIPMIAck().addCallback.call_args_list[10],call(self.powerManager._powerOff))
+
+    def testResetWakeup(self):
+        self.powerManager.sendIPMICommand = Mock(return_value=defer.succeed(None))
+        params = []
+        params.append('-H')
+        params.append(Switch.IPADDRESS)
+        params.append('-U')
+        params.append(Switch.USERNAME)
+        params.append('-P')
+        params.append(Switch.PASSWORD)
+        params.append('raw')
+        params.append('0x30')
+        params.append('0x38')
+
+        for n in range(6):
+            params.append('00')
+
+        d = self.powerManager.resetWakeup()
+
+        self.powerManager.sendIPMICommand.assert_called_with(params)
+
+    #TODO
+    def testSendSyncTime(self):
+        pass
+
+    def testSendWakeupTime(self):
+        pass
+
+    #testing with actual date and time objects
+    def testGetNexDayDate(self):
+        Conf.TESTMODE = False
+        delta = timedelta(days=1)
+        tomorrow = date.today() + delta
+        testdate = date(tomorrow.year, tomorrow.month, tomorrow.day)
+
+        ret = self.powerManager.getNextDayDate()
+
+        self.assertEqual(ret, testdate)
+
+    #testing with actual date and time objects
+    def testGetNextDayDate_testmode(self):
+        today = date.today()
+        testdate = date(today.year, today.month, today.day)
+
+        ret = self.powerManager.getNextDayDate()
+
+        self.assertEqual(ret, testdate)
+
+
+    @patch('PowerManager.utils')
     def test_powerOff(self, utils):
         value = None
         cmd = '/sbin/poweroff'
@@ -108,10 +215,12 @@ class PowerManagerTestSuite(unittest.TestCase):
 
         utils.getProcessOutput.assert_called_with(cmd)
 
-    @patch('cloudtop.daemon.PowerManager.utils')
+    @patch('PowerManager.utils')
     def testShutdownNeighbor(self, utils):
         cmd = '/usr/bin/ssh'
         params = []
+        params.append('-o')
+        params.append('StrictHostKeyChecking no')
         params.append('root@sa.123456.cloudtop.ph')
         params.append('"/sbin/poweroff"')
         params = tuple(params)
@@ -121,7 +230,49 @@ class PowerManagerTestSuite(unittest.TestCase):
 
         utils.getProcessOutput.assert_called_with(cmd, params)
 
-    @patch('cloudtop.daemon.PowerManager.utils')
+    @patch('PowerManager.utils')
+    def testShutdownLMS(self, utils):
+        cmd = '/usr/sbin/clusvcadm'
+        params = []
+        params.append('-d')
+        params.append('vm:b_vm_lms')
+        utils.getProcessOutput = Mock(return_value=defer.succeed(None))
+        self.powerManager.checkIfDisabled = Mock()
+
+        d = self.powerManager.shutdownLMS()
+
+        utils.getProcessOutput.assert_called_with(cmd, params)
+        #d.addCallback(self.assertEqual, None)
+
+    @patch('PowerManager.utils')
+    def testShutdownRDPA(self, utils):
+        cmd = '/usr/sbin/clusvcadm'
+        params = []
+        params.append('-d')
+        params.append('vm:a_vm_rdpa')
+        utils.getProcessOutput = Mock(return_value=defer.succeed(None))
+        self.powerManager.checkIfDisabled = Mock(return_value=defer.succeed(None))
+
+        d = self.powerManager.shutdownRDPA()
+
+        utils.getProcessOutput.assert_called_with(cmd, params)
+        d.addCallback(self.assertEqual, None)
+
+    @patch('PowerManager.utils')
+    def testShutdownRDPB(self, utils):
+        cmd = '/usr/sbin/clusvcadm'
+        params = []
+        params.append('-d')
+        params.append('vm:b_vm_rdpb')
+        utils.getProcessOutput = Mock(return_value=defer.succeed(None))
+        self.powerManager.checkIfDisabled = Mock(return_value=defer.succeed(None))
+
+        d = self.powerManager.shutdownRDPB()
+
+        utils.getProcessOutput.assert_called_with(cmd, params)
+        d.addCallback(self.assertEqual, None)
+
+    @patch('PowerManager.utils')
     def testExecuteReducedPowerMode(self, utils):
         cmd = 'singleservermode'
         directory = '/usr/sbin/'
@@ -161,7 +312,6 @@ class PowerManagerTestSuite(unittest.TestCase):
 
         assert self.powerManager.sendIPMICommand.called
 
-
     def testSendPowerONStatusToSwitch(self):
         self.powerManager.sendIPMICommand = Mock(return_value=defer.succeed(None))
         #-l for impi over lan
@@ -179,8 +329,7 @@ class PowerManagerTestSuite(unittest.TestCase):
 
         d = self.powerManager.sendPowerONStatusToSwitch()
 
-        self.powerManager.sendIPMICommand.assert_called_with(\
-            None, params)
+        self.powerManager.sendIPMICommand.assert_called_with(params)
         d.addCallback(self.assertEqual, None)
 
     def testSendIPMIAck(self):
@@ -200,11 +349,10 @@ class PowerManagerTestSuite(unittest.TestCase):
 
         d = self.powerManager.sendIPMIAck()
 
-        self.powerManager.sendIPMICommand.assert_called_with(\
-           None, params)
+        self.powerManager.sendIPMICommand.assert_called_with(params)
         d.addCallback(self.assertEqual, None)
 
-    @patch('cloudtop.daemon.PowerManager.utils')
+    @patch('PowerManager.utils')
     def testSendIPMICommand(self, utils):
         cmd = '/usr/bin/ipmitool'
         params = []
@@ -237,15 +385,12 @@ class PowerManagerTestSuite(unittest.TestCase):
         self.powerManager.sendIPMICommand.assert_called_with(params)
         d.addCallback(self.assertEqual, None)
 
-    @patch('cloudtop.daemon.PowerManager.ConfigParser.ConfigParser')
+    @patch('PowerManager.ConfigParser.ConfigParser')
     def testGetPortNumberFromMac(self, parser):
         parser.read = Mock()
         parser().get = Mock(side_effect=['94-00-F4-35-FE-94'\
             ,'94-00-F4-35-FE-95'\
             ,'94-00-F4-35-FE-9D'])
-        # parser.get.side_effect = ['94-00-F4-35-FE-94'\
-        #     ,'94-00-F4-35-FE-95'\
-        #     , '94-00-F4-35-FE-9D']
         mac = '94-00-F4-35-FE-9D'
         port = '0x2'
 
@@ -253,24 +398,46 @@ class PowerManagerTestSuite(unittest.TestCase):
 
         self.assertEqual(port, portfromconfig)
 
-    @patch('cloudtop.daemon.PowerManager.task')
+    testGetPortNumberFromMac.skip = "unused or deprecated"
+
+    @patch('PowerManager.Mapper')
+    @patch('PowerManager.timer') #mock to avoid actual sleep on test
+    def testInitializeThinClient(self, mocktimer, mapper):
+        #reads UDP port number. stops at 16
+        #send Power to target PoE
+        #waits for UDP acknowledgement from Switch (use status?)
+        self.powerManager.powerUpPoE = Mock()
+        waitingForUDPAck = True
+        mockCounter = 2
+        self.powerManager.PoECounter = 1
+
+        d = self.powerManager.initializeThinClient()
+
+        self.powerManager.powerUpPoE.assert_called_with(mockCounter)
+        self.assertEqual(waitingForUDPAck,self.powerManager.waitingForPoEConfirm)
+        assert mapper.addNewThinClient.called
+
+    @patch('PowerManager.task')
     def testStartProtocol(self, task):
         self.powerManager.sendPowerONStatusToSwitch =  Mock()
         self.powerManager.normalShutdown = Mock()
         self.powerManager._timeFromShutdown = Mock()
         self.powerManager.powerUpThinClients = Mock()
         self.powerManager.powerUpThinClients = Mock()
+        self.powerManager.sendSyncTime = Mock()
 
         self.powerManager.startProtocol()
 
-        task.deferLater.assert_called_with(reactor, self.powerManager._timeFromShutdown(), self.powerManager.normalShutdown)
+        task.deferLater.assert_has_call(reactor, self.powerManager._timeFromShutdown(), self.powerManager.normalShutdown)
+        task.deferLater.assert_has_call(reactor, 15, self.powerManager.powerUpThinClients)
+        task.deferLater.assert_has_call(reactor, 20, self.powerManager.powerUpThinClients)
         #assert self.powerManager.sendPowerONStatusToSwitch.called
-        assert self.powerManager.powerUpThinClients.called
 
-    @patch('cloudtop.daemon.PowerManager.datetime')
-    @patch('cloudtop.daemon.PowerManager.date')
+
+    @patch('PowerManager.datetime')
+    @patch('PowerManager.date')
     def test_getTimeFromShutdown(self, Date, dateTime):
-        seconds = 52198
+        seconds = 48598
         dateTime.combine = datetime.combine
         dateTime.now = Mock(return_value=\
             datetime(2013,7, 11, 6, 30, 2, 0))
@@ -280,10 +447,10 @@ class PowerManagerTestSuite(unittest.TestCase):
 
         self.assertEqual(seconds, timediff)
 
-    @patch('cloudtop.daemon.PowerManager.datetime')
-    @patch('cloudtop.daemon.PowerManager.date')
+    @patch('PowerManager.datetime')
+    @patch('PowerManager.date')
     def test_getTimeFromPowerUP(self, Date, DateTime):
-        seconds = 41398
+        seconds = 37798
         DateTime.combine = datetime.combine
         Date.today = Mock(return_value=date(2013,7,11))
         DateTime.now = Mock(return_value=\
@@ -293,7 +460,7 @@ class PowerManagerTestSuite(unittest.TestCase):
 
         self.assertEqual(seconds, timediff)
 
-    @patch('cloudtop.daemon.PowerManager.task')
+    @patch('PowerManager.task')
     def testNormalShutdown(self, task):
         #defers shutdown task for 10 minutes
         self.powerManager.postponeToggle = False
@@ -314,9 +481,8 @@ class PowerManagerTestSuite(unittest.TestCase):
         self.assertEqual(self.powerManager.shutdownDelay, Conf.DEFAULTSCHEDULEDSHUTDOWNWAITTIME)
         task.deferLater.assert_called_with(reactor, 300, self.powerManager.startShutdown)
         write.assert_called_with(hex(cmd), (ThinClient.DEFAULT_ADDR[0], ThinClient.DEFAULT_ADDR[1]))
-        assert self.powerManager.schedulePowerUp.called
 
-    @patch('cloudtop.daemon.PowerManager.task')
+    @patch('PowerManager.task')
     def testNormalShutdown_Postponed(self, task):
         self.powerManager.transport = Mock()
         self.powerManager.transport.write = Mock()
@@ -328,7 +494,7 @@ class PowerManagerTestSuite(unittest.TestCase):
         task.deferLater.assert_called_with(reactor, self.powerManager.shutdownDelay, self.powerManager.normalShutdown)
         self.assertEqual(self.powerManager.postponeToggle, False)
 
-    @patch('cloudtop.daemon.PowerManager.task')
+    @patch('PowerManager.task')
     def testSchedulePowerUp(self, task):
         params = []
         params.append('-H')
@@ -346,6 +512,18 @@ class PowerManagerTestSuite(unittest.TestCase):
         self.powerManager.schedulePowerUp()
 
         task.deferLater.assert_called_with(reactor, 3600, self.powerManager.sendIPMICommand, params)
+
+    def testReceivedEmergencyShutdown(self):
+        command = Command.SHUTDOWN_IMMEDIATE
+        self.powerManager.emergencyShutdown = Mock()
+        self.powerManager.sendIPMIAck = Mock()
+        NodeA.serverstate = ServerState.ON
+        NodeB.serverstate = ServerState.ON
+
+        self.powerManager.processCommand(command)
+
+        assert self.powerManager.sendIPMIAck.called
+        assert self.powerManager.emergencyShutdown.called
 
     def testReceivedShutdownCancelCommand(self):
         cmd = Command.SHUTDOWN_CANCEL
@@ -369,6 +547,163 @@ class PowerManagerTestSuite(unittest.TestCase):
         self.powerManager.processCommand(udpMessage)
 
         self.powerManager.postponeShutdown.assert_called_with(time)
+
+    def testReceivedPoEUpNotification(self):
+        self.powerManager.evaluatePoENotif = Mock()
+
+        cmd = []
+        cmd.append(Command.POENOTIF) #command, duh
+        cmd.append('\x0B') #portnumber
+        cmd.append('\x01') #enabled/disabled
+        payload = ['\x0B','\x01']
+        
+        self.powerManager.processCommand(cmd)
+
+        self.powerManager.evaluatePoENotif.assert_called_with(payload)
+
+    @patch('PowerManager.task')
+    @patch('PowerManager.Mapper')
+    def testEvaluatePoENotif_PoEConnectionExists(self, mapper, task):
+        payload = ['\x07','\x01']
+        portnum = 7
+        self.powerManager.PoECounter = 2
+        self.powerManager.powerUpPoE = Mock()
+
+        ret = self.powerManager.evaluatePoENotif(payload)
+
+        task.deferLater.assert_called_with(reactor, 1, mapper.addNewThinClient,portnum)
+        #mapper.addNewThinClient.assert_called_with(portnum)
+        self.assertEqual(3, self.powerManager.PoECounter)
+
+    @patch('PowerManager.Mapper')
+    def testEvaluatePoENotif_PoEDisconnected(self, mapper):
+        self.powerManager.thinClientsInitialized = True
+        payload = ['\x07', '\x00']
+        portnumber = 7
+        self.powerManager.PoECounter = 2
+
+        ret = self.powerManager.evaluatePoENotif(payload)
+
+        mapper.removeThinClient.assert_called_with(portnumber)
+        # self.assertEqual(3, self.powerManager.PoECounter)
+
+    @patch('PowerManager.Mapper')
+    def testEvaluatePoENotif_NoTCConnected(self, mapper):
+        self.powerManager.thinClientsInitialized = False
+        self.powerManager.PoECounter = 2
+        payload = ['\x07', '\x00']
+
+        ret = self.powerManager.evaluatePoENotif(payload)
+
+        self.assertEqual(3, self.powerManager.PoECounter)
+
+    @patch("PowerManager.Mapper")
+    def testEvaluatePoENotif_TestMode(self, mapper):
+        #TESTMDOE is True by default
+        payload = ['\x07', '\x00']
+        self.powerManager.PoECounter = 3
+
+        self.powerManager.evaluatePoENotif(payload)
+
+        self.assertEqual(self.powerManager.thinClientsInitialized, True)
+
+    @patch('PowerManager.task')
+    @patch('PowerManager.Mapper')
+    def testEvaluatePoENotif_TCFinishedInializing(self, mapper, task):
+        Conf.MAXCLIENTS = 16
+        self.powerManager.PoECounter = 16
+        payload = ['\x0F', '\x01']
+        self.powerManager.powerUpPoE = Mock()
+
+
+        ret = self.powerManager.evaluatePoENotif(payload)
+
+        self.assertEqual(self.powerManager.thinClientsInitialized, True)
+
+    @patch('PowerManager.task')
+    @patch('PowerManager.Mapper')
+    def testEvaluatePoENotif_PowerUpNextPoE(self, mapper, task):
+        payload = ['\x07','\x01']
+        port = 8
+        self.powerManager.powerUpPoE = Mock()
+        latercall = call(reactor, 5, self.powerManager, port)
+
+        ret = self.powerManager.evaluatePoENotif(payload)
+
+        task.deferLater.assert_has_call(latercall)
+        #self.powerManager.powerUpPoE.assert_called_with(port)
+
+    @patch('PowerManager.Mapper')
+    def testEvaluatePoENotif_TCRemovedDuringInitialization(self, mapper):
+        self.powerManager.thinClientsInitialized = False
+        payload = ['\x07', '\x00']
+        self.powerManager.PoECounter = 2
+
+        self.powerManager.evaluatePoENotif(payload)
+
+        self.assertEqual(self.powerManager.PoECounter, 3)
+
+    #TODO
+    def testEvaluatePoENotif_PoEUpFail(self):
+        pass
+
+    def testEvaluateRDPRequest_turnOffTC(self):
+        payload=['\x08','\x00']
+        port = 8
+        self.powerManager.powerDownPoE = Mock()
+
+        self.powerManager.evaluateRDPRequest(payload)
+
+        self.powerManager.powerDownPoE.assert_called_with(port)
+
+    @patch('PowerManager.Mapper')
+    def testEvaluateRDPRequest_removeTCOnMap(self, mapper):
+        payload=['\x08','\x00']
+        port = 8
+        self.powerManager.powerDownPoE = Mock(return_value=defer.succeed(None))
+
+        self.powerManager.evaluateRDPRequest(payload)
+
+        mapper.removeThinClient.assert_called_with(port)
+
+    def testReceivedRDPRequest(self):
+        cmd = []
+        cmd.append(Command.RDPREQUEST)
+        cmd.append('\x0B') #portnumber
+        cmd.append('\x00') #requested power 
+        payload = ['\x0B','\x00']
+        self.powerManager.evaluateRDPRequest = Mock()
+
+        self.powerManager.processCommand(cmd)
+
+        self.powerManager.evaluateRDPRequest.assert_called_with(payload)
+
+    def testSendNotificationToRDP(self):
+        self.powerManager.transport = Mock()
+        notif = []
+
+        self.powerManager.sendNotificationToRDP
+
+        self.powerManager.transport.write.assert_called_with(ThinClient)
+
+    testSendNotificationToRDP.skip = "not yet complete"
+
+    def tesReceivedCheckAliveRequest(self):
+        cmd = Command.KEEPALIVE
+        self.powerManager.transport = Mock()
+
+        self.powerManager.processCommand(cmd)
+
+        self.powerManager.transport.write.assert_called_with(cmd, (Switch.IPADDRESS, 8880))
+
+    def testReceivedSwitchReady(self):
+        cmd = Command.SWITCHREADY
+        payload = '\x0E'
+        msg = '\x0C\x0E'
+
+        self.powerManager.processCommand(msg)
+
+        self.assertEqual(self.powerManager.readyPorts, 14)
 
     def testStartShutdown_ShutdownPostponed(self):
         NodeA.shuttingDownPostponed = True
@@ -407,7 +742,7 @@ class PowerManagerTestSuite(unittest.TestCase):
         self.powerManager.startShutdown()
 
         self.assertEqual(NodeA.shuttingDownCancelled, False)
-        self.assertEqual(NodeB.shuttingDownCancelled, False)
+        self.assertEqual(NodeB.shuttingDownCancelled, False)  
 
     def testACRestoredCommandReceived_LowPower(self):
         cmd = Command.AC_RESTORED
@@ -419,7 +754,7 @@ class PowerManagerTestSuite(unittest.TestCase):
 
         assert self.powerManager.ACRestoredFromLowPower.called
 
-    @patch('cloudtop.daemon.PowerManager.utils')
+    @patch('PowerManager.utils')
     def testACRestoredFromLowPower(self, utils):
         # self.powerManager.checkWhichNode = Mock(return_value = 'sb.110134.cloudtop.ph')
         
@@ -454,15 +789,16 @@ class PowerManagerTestSuite(unittest.TestCase):
         self.assertEqual(NodeB.shuttingDownPostponed, False)
 
 
-    @patch('cloudtop.daemon.PowerManager.task')
+    @patch('PowerManager.task')
     def testStartProtocol_NoScheduling(self, task):
-        Conf.DAILYSHUTDOWN = False
+        Conf.SCHEDULESHUTDOWN = False
         self.powerManager.powerUpThinClients = Mock()
 
         self.powerManager.startProtocol()
         assert not task.deferLater().called
 
-    @patch('cloudtop.daemon.PowerManager.utils')
+
+    @patch('PowerManager.utils')
     def testShutdownBothBaremetals(self, utils):
         NodeA.serverState = ServerState.ON
         NodeB.serverState = ServerState.ON
@@ -482,10 +818,11 @@ class PowerManagerTestSuite(unittest.TestCase):
         utils.getProcessOutput.assert_has_call(cmd, params1)
         utils.getProcessOutput().addCallback.assert_called_with(utils.getProcessOutput, cmd, params2)
 
-    @patch('cloudtop.daemon.PowerManager.timer')
+    @patch('PowerManager.timer')
     def testPowerUpThinClients(self, timer):
         self.powerManager.sendIPMICommand = Mock(return_value=defer.succeed(None))
         self.powerManager.sendIPMICommand().addCallback = Mock()
+        self.powerManager._logExitValue = Mock()
         calls = []
         params = []
         params.append('-H')
@@ -499,7 +836,7 @@ class PowerManagerTestSuite(unittest.TestCase):
         params.append(Switch.TCPOWERCMD2)
         params.append(hex(0))
         params.append(Switch.ON)
-        calls.append(call(None, params))
+        calls.append(call(params))
         for tcnum in range(1, 15):
             params = []
             params.append('-H')
@@ -515,12 +852,53 @@ class PowerManagerTestSuite(unittest.TestCase):
             params.append(Switch.ON)
 
             calls.append(call(self.powerManager.sendIPMICommand,params))
-
+            calls.append(call(self.powerManager._logExitValue))
         d = self.powerManager.powerUpThinClients()
 
         self.powerManager.sendIPMICommand.assert_has_calls(calls[0])
         self.powerManager.sendIPMICommand().addCallback.assert_has_calls(calls[1:])
         d.addCallback(self.assertEqual, None)
+
+    def testPowerUpPoE(self):
+        self.powerManager.sendIPMICommand = Mock(return_value=defer.succeed(None))
+
+        num = 11
+        params = []
+        params.append('-H')
+        params.append(Switch.IPADDRESS)
+        params.append('-U')
+        params.append(Switch.USERNAME)
+        params.append('-P')
+        params.append(Switch.PASSWORD)
+        params.append('raw')
+        params.append(Switch.TCPOWERCMD1)
+        params.append(Switch.TCPOWERCMD2)
+        params.append(hex(num))
+        params.append(Switch.ON)
+
+        d = self.powerManager.powerUpPoE(num)
+
+        self.powerManager.sendIPMICommand.assert_called_with(params)
+
+    def testPowerDownPoE(self):
+        self.powerManager.sendIPMICommand = Mock()
+        port = 7
+        params = []
+        params.append('-H')
+        params.append(Switch.IPADDRESS)
+        params.append('-U')
+        params.append(Switch.USERNAME)
+        params.append('-P')
+        params.append(Switch.PASSWORD)
+        params.append('raw')
+        params.append(Switch.TCPOWERCMD1)
+        params.append(Switch.TCPOWERCMD2)
+        params.append(hex(port))
+        params.append(Switch.OFF)    
+
+        d = self.powerManager.powerDownPoE(port)
+
+        self.powerManager.sendIPMICommand.assert_called_with(params)
 
     def testPowerDownThinClients(self):
         self.powerManager.sendIPMICommand = Mock(return_value=defer.succeed(None))
@@ -538,7 +916,7 @@ class PowerManagerTestSuite(unittest.TestCase):
         
         d = self.powerManager.powerDownThinClients()
 
-        self.powerManager.sendIPMICommand.assert_called_with(None, params)
+        self.powerManager.sendIPMICommand.assert_called_with(params)
         d.addCallback(self.assertEqual, None)
 
     def testReceivedUpdateTCDatabaseCommand(self):
@@ -549,7 +927,7 @@ class PowerManagerTestSuite(unittest.TestCase):
 
         assert self.powerManager.updateTCDatabase.called
 
-    @patch('cloudtop.daemon.PowerManager.IPAddressFinder')
+    @patch('PowerManager.IPAddressFinder')
     def testUpdateTCDatabase(self, finder):
         finder.update = Mock()
 
@@ -578,13 +956,15 @@ class PowerManagerTestSuite(unittest.TestCase):
     def testGrantShutdownRequest(self):
         pass
 
+    #deprecated normal shutdown call
     def testReceivedNormalShutdownCommand(self):
         cmd = Command.SHUTDOWN_NORMAL
         self.powerManager.normalShutdown = Mock()
 
         self.powerManager.processCommand(cmd)
         
-        assert self.powerManager.normalShutdown.called
+        #deprecated normal shutdown call
+        assert not self.powerManager.normalShutdown.called
 
     def testReceivedNormalShutdownCommand_CountdownStarted(self):
         cmd = Command.SHUTDOWN_REQUEST
@@ -611,6 +991,62 @@ class PowerManagerTestSuite(unittest.TestCase):
 
         self.assertEqual(ipaddress, correctIP)
 
+    @patch("PowerManager.telnetlib")
+    @patch("PowerManager.Switch")
+    def testCheckSwitchState(self, switch, telnet):
+        #check state then match with internal state
+        switch.IPADDRESS = mock(return_value='10.225.3.210')
+        telnet.write = Mock()
+        switchMatchString = """
+            
+            RTCS v3.08.00 Telnet server            
+
+            Shell (build: Oct 26 2013)
+            Copyright (c) 2008 Freescale Semiconductor;
+            shell>
+            shell>
+        """
+
+        switchStateString = """
+            state is 8
+            SOC_state is 3
+            VB_state is 4
+            pdu logs is 203
+            pdu cnt is 48175
+            pdu char is [
+            ]
+            shell>
+        """
+
+        telnet.write.assert_has_call("state\n")
+        telnet.write.assert_has_call("exit\n")
+        ret = self.powerManager.getSwitchState()
+
+        self.assertEqual(ret, 8)
+
+    testCheckSwitchState.skip = "not yet implemented"
+
+    @patch("PowerManager.utils")
+    def testLockResources(self, utils):
+        cmd = '/usr/sbin/clusvcadm'
+        params = []
+        params.append('-l')
+        utils.getProcessOutput = Mock(return_value=defer.succeed(None))
+
+        d = self.powerManager.lockResources()
+
+        utils.getProcessOutput.assert_called_with(cmd, params)
+        d.addCallback(self.assertEqual, None)
+
+    @patch("PowerManager.logging")
+    @patch("PowerManager.utils")
+    def testLockResources_fail(self, utils, logging):
+
+        d = self.powerManager.lockResources()
+
+        logging.error.assert_called_with('failed to lock cluster resources')
+
+    testLockResources_fail.skip = "errback handling pending"
 
 #PowerManager Factory TestSuite
 class PowerManagerFactoryTestSuite(unittest.TestCase):
@@ -620,7 +1056,7 @@ class PowerManagerFactoryTestSuite(unittest.TestCase):
     def tearDown(self):
         pass
 
-    @patch('cloudtop.daemon.PowerManager.PowerManager')
+    @patch('PowerManager.PowerManager')
     def testBuildProtocol(self, powerManager):
         addr = Mock()
 
@@ -645,7 +1081,7 @@ class IPMISecurityTestSuite(unittest.TestCase):
 
         self.assertEqual(hashed, '\xf5\xdc\xb0UU\x13Ti\xf7\xf3\x95')
 
-    @patch('cloudtop.daemon.PowerManager.os')
+    @patch('PowerManager.os')
     @patch('__builtin__.open')
     def testGetIPMIPassword(self, opencmd, os):
         opencmd.readline = Mock()
@@ -668,7 +1104,7 @@ class IPMISecurityTestSuite(unittest.TestCase):
 
         self.assertEqual(password, 'hello world')
 
-    @patch('cloudtop.daemon.PowerManager.os')
+    @patch('PowerManager.os')
     @patch('__builtin__.open')
     def testStoreIPMIPassword(self, Open, os):
         self.ipmiSecurity.encrypt = Mock(return_value='wahooooo')

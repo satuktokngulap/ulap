@@ -2,7 +2,7 @@
 
 SCHID=$1
 SCHNAME=$2
-SCHMUN=$3
+SCHDIV=$3
 SCHREG=$4
 DUMMYCOUNT=$5
 
@@ -20,7 +20,7 @@ STUDENTHPWD=$(slappasswd -s student)
 for (( i=1; i<=$DUMMYCOUNT; i++ ))
 do
 cat >> ${LDIFOUT} << EOF 
-dn: uid=student$i,ou=users,o=$SCHID $SCHNAME,st=$SCHMUN,l=$SCHREG,dc=cloudtop,dc=ph
+dn: uid=student$i,ou=users,o=$SCHID $SCHNAME,st=$SCHDIV,l=$SCHREG,dc=cloudtop,dc=ph
 objectClass: posixAccount
 objectClass: shadowAccount
 objectClass: inetOrgPerson
@@ -46,7 +46,7 @@ TEACHERHPWD=$(slappasswd -s teacher)
 for (( i=1; i<=$DUMMYCOUNT; i++ ))
 do
 cat >> ${LDIFOUT} << EOF 
-dn: uid=teacher$i,ou=users,o=$SCHID $SCHNAME,st=$SCHMUN,l=$SCHREG,dc=cloudtop,dc=ph
+dn: uid=teacher$i,ou=users,o=$SCHID $SCHNAME,st=$SCHDIV,l=$SCHREG,dc=cloudtop,dc=ph
 objectClass: posixAccount
 objectClass: shadowAccount
 objectClass: inetOrgPerson
@@ -56,7 +56,7 @@ uidNumber: ${SCHID}${i}
 loginShell: /bin/bash
 homeDirectory: /home/nfs/teacher${i}
 gidNumber: ${SCHID}1${i}
-userPassword: $STUDENTHPWD
+userPassword: $TEACHERHPWD
 givenName: teacher given name ${i}
 mail: NA
 homePostalAddress: NA
@@ -68,7 +68,7 @@ EOF
 done
 
 cat >> ${LDIFOUT} << EOF
-dn: cn=teachers,o=$SCHID $SCHNAME,st=$SCHMUN,l=$SCHREG,dc=cloudtop,dc=ph
+dn: cn=teachers,o=$SCHID $SCHNAME,st=$SCHDIV,l=$SCHREG,dc=cloudtop,dc=ph
 objectClass: posixGroup
 cn: teachers
 gidNumber: ${SCHID}2
@@ -83,7 +83,7 @@ done
 echo "" >> ${LDIFOUT}
 
 cat >> ${LDIFOUT} << EOF
-dn: cn=students,o=$SCHID $SCHNAME,st=$SCHMUN,l=$SCHREG,dc=cloudtop,dc=ph
+dn: cn=students,o=$SCHID $SCHNAME,st=$SCHDIV,l=$SCHREG,dc=cloudtop,dc=ph
 objectClass: posixGroup
 cn: students
 gidNumber: ${SCHID}1

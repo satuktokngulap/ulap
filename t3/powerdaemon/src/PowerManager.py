@@ -8,7 +8,6 @@
 
 
 
-
 import logging, os, signal, re
 import time as timer
 import ConfigParser
@@ -24,6 +23,8 @@ from datetime import datetime, time, date, timedelta
 from ipaddressfinder import IPAddressFinder
 from powermodels import Conf, NodeA, NodeB, Switch, ThinClient, Power, MasterTC
 from powermodels import ServerState, PowerState, SwitchState
+from mapper import Mapper
+from dbhandler import DBHandler
 
 #change on deployment
 from configreader import fillAllDefaults
@@ -67,15 +68,21 @@ class Command():
     #switch commands & notifications
     SHUTDOWN_IMMEDIATE = '\x05'
     AC_RESTORED = '\x02'
+    KEEPALIVE = '\x04'
+    SWITCHREADY = '\x0C'
+
     
     #thinclient commands & notifications
-    SHUTDOWN_CANCEL = '\x07'
+    SHUTDOWN_CANCEL = '\x09'
     SHUTDOWN_NORMAL = '\x06'
     SHUTDOWN_REQUEST = '\x08'
     REDUCE_POWER = '\x03'
     POSTPONE = '1'
+    POENOTIF = '\x07'
+
 
     #from RDP
+    RDPREQUEST ='\x0B'
     UPDATE = '\x0A'
 
 class ServerNotifs():
@@ -90,6 +97,11 @@ class PowerManager(DatagramProtocol):
     def __init__(self):
         self.shutdownDelay = Conf.DEFAULTSCHEDULEDSHUTDOWNWAITTIME
         self.postponeToggle = False
+        self.waitingForPoEConfirm = False
+        self.PoECounter = 1
+        self.readyPorts = 16 #default. changed at startup
+        self.thinClientsInitialized = False
+
 
     def _logExitValue(self, exitValue):
         logging.info("exit value of last command:%s" % exitValue)
@@ -121,6 +133,7 @@ class PowerManager(DatagramProtocol):
         d = self.sendIPMICommand(params) 
         return d
 
+    #Deprecated/unused
     def getPortNumberFromMac(self, mac):
         config = ConfigParser.ConfigParser()
         config.read(Conf.MACFILE)
@@ -151,6 +164,26 @@ class PowerManager(DatagramProtocol):
         d = self.sendIPMICommand(params)
         return d
 
+    def resetWakeup(self, value=None):
+        logging.info("resetting wakeup time on switch")
+        params = []
+        params.append('-H')
+        params.append(Switch.IPADDRESS)
+        params.append('-U')
+        params.append(Switch.USERNAME)
+        params.append('-P')
+        params.append(Switch.PASSWORD)
+        params.append('raw')
+        params.append('0x30')
+        params.append('0x38')
+
+        for n in range(6):
+            params.append('00')
+
+        d = self.sendIPMICommand(params)
+
+        return d
+
     def sendWakeUpTime(self, value=None):
         logging.debug("sending wake up time to switch")
 
@@ -166,30 +199,18 @@ class PowerManager(DatagramProtocol):
         params.append('0x38')
 
         datetom = self.getNextDayDate()
-        #format date
-        if datetom.month <= 9:
-            params.append('0'+str(datetom.month))
-        else:
-            params.append(str(datetom.month))
-        if datetom.day <= 9:
-            params.append('0'+str(datetom.day))
-        else:
-            params.append(str(datetom.day))
+
+        params.append(str(datetom.month))
+        params.append(str(datetom.day))
+
 
         year1 = str(datetom.year)[0:2]
         year2 = str(datetom.year)[2:4]
         params.append(year1)
         params.append(year2)
 
-        #format time
-        if Conf.WAKEUPHOUR <= 9:
-            params.append('0'+str(Conf.WAKEUPHOUR))
-        else:
-            params.append(str(Conf.WAKEUPHOUR))
-        if Conf.WAKEUPMINUTE <= 9:
-            params.append('0'+str(Conf.WAKEUPMINUTE))
-        else:
-            params.append(str(Conf.WAKEUPMINUTE))
+        params.append(str(Conf.WAKEUPHOUR))
+        params.append(str(Conf.WAKEUPMINUTE))
 
         d = self.sendIPMICommand(params)
         return d
@@ -210,30 +231,16 @@ class PowerManager(DatagramProtocol):
 
         currentTime = self.getCurrentTime()
 
-        #format date
-        if currentTime.month <= 9:
-            params.append('0'+str(currentTime.month))
-        else:
-            params.append(str(currentTime.month))
-        if currentTime.day <= 9:
-            params.append('0'+str(currentTime.day))
-        else:
-            params.append(str(currentTime.day))
+        params.append(str(currentTime.month))
+        params.append(str(currentTime.day))
 
         year1 = str(currentTime.year)[0:2]
         year2 = str(currentTime.year)[2:4]
         params.append(year1)
         params.append(year2)
 
-        #format time
-        if currentTime.hour <= 9:
-            params.append('0'+str(currentTime.hour))
-        else:
-            params.append(str(currentTime.hour))
-        if currentTime.minute <= 9:
-            params.append('0'+str(currentTime.minute))
-        else:
-            params.append(str(currentTime.minute))
+        params.append(str(currentTime.hour))
+        params.append(str(currentTime.minute))
 
         d = self.sendIPMICommand(params)
         return d
@@ -306,6 +313,42 @@ class PowerManager(DatagramProtocol):
 
         return d
 
+    def shutdownLMS(self, value=None):
+        logging.debug('disabling LMS VM...')
+        cmd = '/usr/sbin/clusvcadm'
+        params = []
+        params.append('-d')
+        params.append('vm:b_vm_lms')
+
+        d = utils.getProcessOutput(cmd, params)
+        d.addCallback(self.checkIfDisabled)
+
+        return d
+
+    def shutdownRDPA(self, value=None):
+        logging.debug('disabling RDPA VM...')
+        cmd = '/usr/sbin/clusvcadm'
+        params = []
+        params.append('-d')
+        params.append('vm:a_vm_rdpa')
+
+        d = utils.getProcessOutput(cmd, params)
+        d.addCallback(self.checkIfDisabled)
+
+        return d
+
+    def shutdownRDPB(self, value=None):
+        logging.debug('disabling RDPB VM...')
+        cmd = '/usr/sbin/clusvcadm'
+        params = []
+        params.append('-d')
+        params.append('vm:b_vm_rdpb')
+
+        d = utils.getProcessOutput(cmd, params)
+        d.addCallback(self.checkIfDisabled)
+
+        return d
+
     def shutdownNFS(self, value=None):
         logging.debug('disabling NFS...')
         cmd = '/usr/sbin/clusvcadm'
@@ -316,6 +359,16 @@ class PowerManager(DatagramProtocol):
         d = utils.getProcessOutput(cmd, params)
         d.addCallback(self.checkIfDisabled)
 
+        return d
+
+    def lockResources(self, value=None):
+        logging.debug('locking resources via clusvcadm')
+        cmd = '/usr/sbin/clusvcadm'
+        params = []
+        params.append('-l')
+
+        d = utils.getProcessOutput(cmd, params)
+        #if lock fails, procedure should still proceed
         return d
     
     def _powerOff(self, buffer):
@@ -343,24 +396,53 @@ class PowerManager(DatagramProtocol):
             self.postponeToggle = True
             self.normalShutdown()
         else:
-            logging.info("Immediate shutdown request granted")
+            logging.info("shutdown now proceeding")
             NodeA.serverState = ServerState.SHUTDOWN_IN_PROGRESS
             NodeB.serverState = ServerState.SHUTDOWN_IN_PROGRESS
             cmd = '/sbin/poweroff'
             #Todo: simplify this for Mgmt Vm based operation
-            d = self.powerDownThinClients()
-            d.addCallback(self.sendIPMIAck)
-	    d.addCallback(self.sendSyncTime)
+            #d = self.powerDownThinClients()
+            #d.addCallback(self.sendIPMIAck)
+            d = self.sendIPMIAck()
+            d.addCallback(self.sendSyncTime)
+            #TODO: capture error on ipmi
             d.addCallback(self.sendWakeUpTime)
+            d.addCallback(self.lockResources)
             d.addCallback(self.shutdownManagementVM)
             d.addCallback(self.shutdownNFS)
+            d.addCallback(self.shutdownLMS)
+            d.addCallback(self.shutdownRDPA)
+            d.addCallback(self.shutdownRDPB)
             d.addCallback(self.checkWhichNode) 
             d.addCallback(self.shutdownNeighbor)
             d.addCallback(self._powerOff)
             d.addCallback(self._logExitValue)
             returnValue = d
-        #remove return?
         return returnValue
+
+    def emergencyShutdown(self):
+        logging.info("emegergency shutdown!")
+
+        NodeA.serverState = ServerState.SHUTDOWN_IN_PROGRESS
+        NodeB.serverState = ServerState.SHUTDOWN_IN_PROGRESS
+
+        #d = self.powerDownThinClients()
+        #d.addCallback(self.sendIPMIAck)
+        d = self.sendIPMIAck()
+        d.addCallback(self.sendSyncTime)
+        d.addCallback(self.resetWakeup)
+        d.addCallback(self.lockResources)
+        d.addCallback(self.shutdownManagementVM)
+        d.addCallback(self.shutdownNFS)
+        d.addCallback(self.shutdownLMS)
+        d.addCallback(self.shutdownRDPA)
+        d.addCallback(self.shutdownRDPB)
+        d.addCallback(self.checkWhichNode) 
+        d.addCallback(self.shutdownNeighbor)
+        d.addCallback(self._powerOff)
+        d.addCallback(self._logExitValue)
+
+        return d
 
     def shutdownNeighbor(self, hostname):
         logging.debug("shutting down neighbor  of %s" % hostname)
@@ -426,13 +508,14 @@ class PowerManager(DatagramProtocol):
 
         self.transport.write(hex(cmd), (ThinClient.DEFAULT_ADDR[0],ThinClient.DEFAULT_ADDR[1]))
         if self.postponeToggle == False:
+            logging.debug("no postponement received. Scheduled shutdown will now proceed")
             NodeA.serverState = ServerState.COUNTDOWN_IN_PROGRESS
             NodeB.serverState = ServerState.COUNTDOWN_IN_PROGRESS
             d = task.deferLater(reactor, self.shutdownDelay, self.startShutdown)
         else:
             d = task.deferLater(reactor, self.shutdownDelay, self.normalShutdown)
             self.postponeToggle = False
-        self.schedulePowerUp()
+        # self.schedulePowerUp()
         self.shutdownDelay = Conf.DEFAULTSCHEDULEDSHUTDOWNWAITTIME
         return d
 
@@ -483,21 +566,24 @@ class PowerManager(DatagramProtocol):
     def grantShutdownRequest(self):
         pass        
 
-    def processCommand(self, command):
+    def processCommand(self, msg):
         #check status of CPU
-        logging.debug("processing datagram %s" % command)
+        logging.debug("processing datagram %s" % msg)
         payload = None
-        if len(command) > 1:
-            if command[1] == 'x':
+        if len(msg) > 4:
+            logging.debug("datagram received from thinclient with length %d" % len(msg))
+            if msg[1] == 'x':
                 #command came from the thinclient, postprocess
-                payload = command[4:9]
-                command = command[2]
+                payload = msg[4:9]
+                command = msg[2]
         else:
-            command = command[0]
+            logging.debug("datagram received from switch")
+            if len(msg) > 1: payload = msg[1:]
+            command = msg[0]
         if command == Command.SHUTDOWN_IMMEDIATE:
-            if NodeA.serverState == ServerState.ON or NodeB.serverState.ServerState.ON:
+            if NodeA.serverState == ServerState.ON or NodeB.serverState == ServerState.ON:
                 self.sendIPMIAck()
-                self.startShutdown()
+                self.emergencyShutdown()
             elif NodeA.serverState == ServerState.SHUTDOWN_IN_PROGRESS and\
                 NodeB.serverState == ServerState.SHUTDOWN_IN_PROGRESS:
                 pass
@@ -538,25 +624,102 @@ class PowerManager(DatagramProtocol):
                 self.grantShutdownRequest() 
         elif command == Command.SHUTDOWN_NORMAL:
             if NodeA.serverState == ServerState.COUNTDOWN_IN_PROGRESS:
-                print "hello"
+                logging.debug("shutdown already progressing. ignoring requests")
                 pass
             if NodeB.serverState == ServerState.COUNTDOWN_IN_PROGRESS:
-                print "world"
+                logging.debug("shutdown already progressing. ignoring requests")
                 pass
             else:
-                self.normalShutdown() 
+                logging.debug("deprecated normal shutdown requested. ignoring")
+        elif command == Command.POENOTIF:
+            logging.debug("PoE notif from switch received")
+            #self.waitingForPoEConfirm = False
+            self.evaluatePoENotif(payload)
+        elif command == Command.RDPREQUEST:
+            logging.debug("notification from RDP received")
+            self.evaluateRDPRequest(payload)
+        elif command == Command.KEEPALIVE:
+            self.transport.write(command, (Switch.IPADDRESS, 8880))
+            logging.debug('replying to switch Checkalive packet')
+        elif command == Command.SWITCHREADY:
+            self.readyPorts = ord(payload)
+            logging.debug('switch sents ready ports on startup')
+
+    #the scenario assumes that the port number matches the PoECounter
+    #if not matching, I'm not sure of the next action
+    #need to add functionality if UDP notif doesn't arrive
+    def evaluatePoENotif(self, payload):
+        logging.debug("evaluating PoE Notification from switch with length %d" % len(payload))
+        ret = None
+        port = ord(payload[0])
+
+        if Conf.TESTMODE:
+            #3 TCs to be initialized only on testmode
+            #hardcoded for now
+            #what if more than 16?!
+            if self.PoECounter >= 3:
+                self.thinClientsInitialized = True
+
+        if self.PoECounter >= Conf.MAXCLIENTS:
+            logging.debug("ThinClient map initialization has ended")
+            self.thinClientsInitialized = True
+
+        if payload[1] == '\x01': #true
+            #d1 = self.powerUpPoE(port+1)
+            d1 = task.deferLater(reactor, 5, self.powerUpPoE, port+1)
+            #errback here needed
+            #grace period of 25sec from PoE power to bootup of thinClient
+            d2 = task.deferLater(reactor, 1, Mapper.addNewThinClient, port)
+            #d2 = Mapper.addNewThinClient(port)
+            if not self.thinClientsInitialized:
+                self.PoECounter = self.PoECounter + 1
+            ret = d1
+        elif payload[1] == '\x00':
+            d = Mapper.removeThinClient(port)
+            if self.thinClientsInitialized == False:
+                self.PoECounter = self.PoECounter + 1
+            ret = d
+        else:
+            logging.debug("PoE on port %d failed. LAN cable probably disconnected" % port)
+            self.PoECounter = self.PoECounter + 1
+            
+    def evaluateRDPRequest(self, payload):
+        tc = ord(payload[0])
+        requestedState = ord(payload[1])
+
+        if requestedState == 0:
+            Mapper.removeThinClient(tc)
+            d = self.powerDownPoE(tc)
+
+    #TODO: remove 
+    def initializeThinClient(self):
+        logging.debug("initializing an active ThinClient")
+        self.PoECounter = self.PoECounter +1
+        self.waitingForPoEConfirm = True
+
+        Mapper.addNewThinClient()
+        
+        timer.sleep(3) # 3-second grace period before trying to activate the next PoE   
+        d = self.powerUpPoE(self.PoECounter)
+
+        return d
+
 
     def startProtocol(self):
+        logging.info("Power Daemon has now started")
         self.address = ThinClient.DEFAULT_ADDR
-        if Conf.DAILYSHUTDOWN:
-            logging.debug("Scheduling shutdown")
+        if Conf.SCHEDULESHUTDOWN:
+            logging.debug("Scheduling shutdown based on config")
             d = task.deferLater(reactor, self._timeFromShutdown(), self.normalShutdown)
-        #hack
-        d2 = task.deferLater(reactor, 15, self.powerUpThinClients)
+        else:
+            logging.debug("Daily shutdown schedule disabled")
+        #power up port 0
+        d2 = task.deferLater(reactor, 15, self.powerUpPoE, 0)
 
         #slightly hack, time is arbitrary
-        d3 = task.deferLater(reactor, 20, self.sendSyncTime)
+        #d3 = task.deferLater(reactor, 20, self.sendSyncTime)
 
+    #to be updated to a initialize() method
     def powerUpThinClients(self):
         logging.debug("sending IPMI command to power up ThinClients via Switch")
         params = []
@@ -587,9 +750,47 @@ class PowerManager(DatagramProtocol):
             params.append(hex(tcnum))
             params.append(Switch.ON)
 
-            #timer.sleep(2)
+            timer.sleep(2)
             d.addCallback(self.sendIPMICommand,params)
             d.addCallback(self._logExitValue)
+        return d
+
+    def powerUpPoE(self, num):
+        logging.debug("sending power to PoE port %d" % num)
+
+        params = []
+        params.append('-H')
+        params.append(Switch.IPADDRESS)
+        params.append('-U')
+        params.append(Switch.USERNAME)
+        params.append('-P')
+        params.append(Switch.PASSWORD)
+        params.append('raw')
+        params.append(Switch.TCPOWERCMD1)
+        params.append(Switch.TCPOWERCMD2)
+        params.append(hex(num))
+        params.append(Switch.ON)    
+
+        d = self.sendIPMICommand(params)  
+        return d  
+
+    def powerDownPoE(self, port):
+        logging.info("removing power to PoE port %d" % port)
+
+        params = []
+        params.append('-H')
+        params.append(Switch.IPADDRESS)
+        params.append('-U')
+        params.append(Switch.USERNAME)
+        params.append('-P')
+        params.append(Switch.PASSWORD)
+        params.append('raw')
+        params.append(Switch.TCPOWERCMD1)
+        params.append(Switch.TCPOWERCMD2)
+        params.append(hex(port))
+        params.append(Switch.OFF)    
+
+        d = self.sendIPMICommand(params)
         return d
 
     def powerDownThinClients(self):
@@ -611,10 +812,12 @@ class PowerManager(DatagramProtocol):
         return d
 
     def getNextDayDate(self):
-        oneDay = timedelta(days=1)
-        #tomorrow = date.today() + oneDay
-        tomorrow = date.today()
-        return date(tomorrow.year, tomorrow.month, tomorrow.day)
+        if Conf.TESTMODE == False:
+            oneDay = timedelta(days=1)
+            targetday = date.today() + oneDay
+        else:
+            targetday = date.today()
+        return date(targetday.year, targetday.month, targetday.day)
 
     def _timeFromPowerUp(self):
         currentTime = datetime.now()
@@ -633,12 +836,15 @@ class PowerManager(DatagramProtocol):
 
     def datagramReceived(self, data, (host, port)):
         self.address = (host, port)
-        self.processCommand(data)
-        logging.info("datagram received")
+        logging.info("datagram received with length %d" % len(data))
+        self.processCommand(data)      
 
     def updateTCDatabase(self):
         
         IPAddressFinder.update()
+
+    def powerOffThinClient(self):
+        pass
         
 
 #power manager factory class
@@ -655,11 +861,13 @@ def SIGTERMHandler():
     exit()
 
 #main function
+#transfer to executable?
 if __name__ == "__main__":
     signal.signal(signal.SIGTERM, SIGTERMHandler)
     fillAllDefaults("/etc/power_mgmt.cfg")
     FORMAT = '%(asctime)-15s %(message)s'
     logging.basicConfig(filename=Conf.LOGFILE,level=Conf.LOGLEVEL, format=FORMAT)
+    DBHandler.openDB(Conf.MAPFILE)
     #run reactor
     powerManager = PowerManager()
     virtualIP = powerManager.getVirtualIP()

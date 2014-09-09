@@ -1,0 +1,15 @@
+#powerdaemon_manifest
+
+class powerdaemon{
+	
+	#make sure python-twisted is installed 
+
+	#install init file (can be included on rpm)
+	#puppet checks if this is included on chkconfig
+
+	#install config file
+
+	#install exec file (can be included on rpm)
+
+	#install rpm file for power daemon
+}

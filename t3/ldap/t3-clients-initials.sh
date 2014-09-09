@@ -13,14 +13,14 @@
 
 SCHID=$1
 SCHNAME=$2
-SCHMUN=$3
+SCHDIV=$3
 SCHREG=$4
 TMPPWD=$5
-SCHDIV=$6
+SCHMUN=$6
 SCHDIST=$7
 PROVID=$8
 
-DN="o=$SCHID $SCHNAME,st=$SCHMUN,l=$SCHREG,dc=cloudtop,dc=ph"
+DN="o=$SCHID $SCHNAME,st=$SCHDIV,l=$SCHREG,dc=cloudtop,dc=ph"
 
 if [ $# -lt 5 ];
 	then
@@ -43,7 +43,7 @@ cat > root.ldif << EOF
 dn: $DN
 objectClass: organization
 o: $SCHID $SCHNAME
-st: $SCHMUN
+st: $SCHDIV
 l: $SCHREG
 description: SchDivName=$6,SchDivDist=$7,ProvID=$8
 EOF

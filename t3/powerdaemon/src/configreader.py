@@ -1,5 +1,6 @@
 import ConfigParser
 from powermodels import NodeA, NodeB, Conf, Switch, ThinClient
+from powermodels import MgmtVM
 
 def _fillSwitchDefaults(configfile):
 	config = ConfigParser.ConfigParser()
@@ -18,6 +19,9 @@ def _fillConfigDefaults(configfile):
 	Conf.SHUTDOWNMINUTE = int(config.get('defaults', 'shutdownminute'))
 	Conf.WAKEUPHOUR = int(config.get('defaults', 'wakeuphour'))
 	Conf.WAKEUPMINUTE = int(config.get('defaults', 'wakeupminute'))
+	Conf.SCHEDULESHUTDOWN = config.getboolean('defaults', 'scheduleshutdown')
+	Conf.TESTMODE = config.getboolean('defaults', 'testmode')
+	Conf.MAPFILE = config.get('defaults', 'mapfile')
 
 def _fillNodeDefaults(configfile):
 	config = ConfigParser.ConfigParser()
@@ -33,6 +37,12 @@ def _fillNodeDefaults(configfile):
 	NodeB.IPMIUSER = config.get('nodeB', 'ipmiuser')
 	NodeB.IPMIPASSWORD = config.get('nodeB', 'ipmipassword')
 
+def _fillMgmtDefaults(configfile):
+	config = ConfigParser.ConfigParser()
+	config.read(configfile)
+
+	MgmtVM.IPADDRESS = config.get('mgmt', 'ip')
+	
 def _fillThinclientDefaults(configfile):
 	config = ConfigParser.ConfigParser()
 	config.read(configfile)
@@ -45,4 +55,5 @@ def fillAllDefaults(configfile):
 	_fillSwitchDefaults(configfile)
 	_fillNodeDefaults(configfile)
 	_fillConfigDefaults(configfile)
+	_fillMgmtDefaults(configfile)
 	_fillThinclientDefaults(configfile)

@@ -1,0 +1,20 @@
+<LOAD BALANCER>
+1. Copy this folder to /opt/
+2. Add entries to /etc/hosts
+
+   172.16.XXX.1    mgmt.tc.net   
+   172.16.XXX.3    rdpa.tc.net
+   172.16.XXX.4    rdpb.tc.net
+   
+3. Add this line to /etc/rc.local
+   python /opt/lb_mgmt/lb_mgmt.py
+
+<UPSTART>   
+4. Copy the upstart script file 'upstart/lb_mgmt.conf' inside '/etc/init/'
+
+5. Issue command 'initctl list' and see if lb_mgmt is on the list
+    If status is 'stop/wating' issue command 'start lb_mgmt'
+    Issue command 'status lb_mgmt' and the process 'lb_mgmt' should be running
+
+<LOGROTATE>
+6. Copy the file 'logrotate.d/lb_mgmt' into '/etc/logrotate.d/'

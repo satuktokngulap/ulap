@@ -1,15 +1,17 @@
-import logging
+import logging, socket
 
 #Power Conf class
 class Conf():
     LOGFILE = '/var/log/PowerManagerDeamon.log'
-    MACFILE = ''
+    MAPFILE = ''
     LOGLEVEL = logging.DEBUG
-    DAILYSHUTDOWN = True
+    SCHEDULESHUTDOWN = False
+    TESTMODE = False
     SHUTDOWNHOUR = 20
     SHUTDOWNMINUTE = 0
     WAKEUPHOUR = 5
     WAKEUPMINUTE = 0
+    MAXCLIENTS = 16 
     DEFAULTSCHEDULEDSHUTDOWNWAITTIME = 0x258
 
 #States
@@ -71,9 +73,46 @@ class NodeB():
     IPMIHOST = '10.18.221.112'
     IPMIUSER = 'ADMIN'
     IPMIPASS = 'admin@123'
+
+class MgmtVM():
+    IPADDRESS = '10.18.221.21'
     
 
+#refactored to be a instantiated
 class ThinClient():
+    #class variables
     DEFAULT_ADDR = ('172.16.1.5', 8880)
     SERVERA_ADDR = ('172.16.1.5', 8880)
     SERVERB_ADDR = ('172.16.1.6', 8880)
+
+    def __init__(self, IDtouple=None, portNum=None):
+        if IDtouple is not None:
+            #assumes correct input
+            self.setIPAddress(IDtouple[0])
+            self.setMacAddress(IDtouple[1])
+            self.setSwitchPoEPort(portNum)
+
+    def getIPAddress(self):
+        return self.ipAddress
+
+    def setIPAddress(self, IP):
+        self.ipAddress = IP
+
+    def getMacAddress(self):
+        return self.macAddress
+
+    #mac address is unique for ThinClient
+    def setMacAddress(self, Mac):
+        self.macAddress = Mac
+
+    def setSessionID(sef, Id):
+        self.sessionID = Id
+
+    def getSessionID(self):
+        return self.sessionID
+
+    def setSwitchPoEPort(self, Port):
+        self.port = Port
+
+    def getSwitchPoEPort(self):
+        return self.port

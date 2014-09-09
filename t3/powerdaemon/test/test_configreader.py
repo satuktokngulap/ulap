@@ -2,20 +2,22 @@ from mock import Mock, call, patch
 from twisted.internet import defer, reactor
 from twisted.trial import unittest
 
-from cloudtop.daemon.PowerManager import NodeA, NodeB, Conf, Switch, ThinClient
-import cloudtop.helper.configreader as configreader
+from powermodels import NodeA, NodeB, Conf, Switch, ThinClient
+from powermodels import MgmtVM
+import configreader
 
-from cloudtop.config.test import TEST
+# from cloudtop.config.test import TEST
 
 import ConfigParser
 
 class ConfigreaderTestSuite(unittest.TestCase):
     
     def setUp(self):
-        self.testFile = TEST.POWERTESTFILE
+        self.testFile = "/Users/genepaulquevedo/ulap/t3/powerdaemon/test/artifacts/power_mgmt.cfg"
         switch = {}
         nodeA = {}
         nodeB = {}
+        mgmt = {}
         thinclient = {}
         defaults = {}
         self.configset = {}
@@ -35,19 +37,25 @@ class ConfigreaderTestSuite(unittest.TestCase):
         nodeB['ipmiuser'] = 'ADMIN'
         nodeB['ipmipassword'] = 'Admin@123'
 
-        thinclient['default_addr'] = '173.16.1.5'
-        thinclient['serverA_addr'] = '173.16.1.5'
-        thinclient['serverB_addr'] = '173.16.1.6'
+        mgmt['ip'] = '10.225.3.146'
+
+        thinclient['default_addr'] = ('173.16.1.5', 8880)
+        thinclient['serverA_addr'] = ('173.16.1.5', 8880)
+        thinclient['serverB_addr'] = ('173.16.1.6', 8880)
 
         defaults['shutdownhour'] = 20
         defaults['shutdownminute'] = 0
         defaults['wakeuphour'] = 5
         defaults['wakeupminute'] = 0
+        defaults['scheduleshutdown'] = True
+        defaults['testmode'] = True
+        defaults['mapfile'] = '/var/lib/powerdaemon/pmd_DB.sql'
 
         self.configset['switch'] = switch
         self.configset['nodeA'] = nodeA
         self.configset['nodeB'] = nodeB
         self.configset['thinclient'] = thinclient
+        self.configset['mgmt'] = mgmt
         self.configset['defaults'] = defaults
 
     def tearDown(self):
@@ -69,6 +77,9 @@ class ConfigreaderTestSuite(unittest.TestCase):
         self.assertEqual(Conf.SHUTDOWNMINUTE, self.configset['defaults']['shutdownminute'])
         self.assertEqual(Conf.WAKEUPHOUR, self.configset['defaults']['wakeuphour'])
         self.assertEqual(Conf.WAKEUPMINUTE, self.configset['defaults']['wakeupminute'])
+        self.assertEqual(Conf.SCHEDULESHUTDOWN, self.configset['defaults']['scheduleshutdown'])
+        self.assertEqual(Conf.TESTMODE, self.configset['defaults']['testmode'])
+        self.assertEqual(Conf.MAPFILE, self.configset['defaults']['mapfile'])
 
     def testFillNodeDefaults(self):
         configreader._fillNodeDefaults(self.testFile)
@@ -83,7 +94,13 @@ class ConfigreaderTestSuite(unittest.TestCase):
         self.assertEqual(NodeB.IPMIHOST, self.configset['nodeB']['ipmihost'])
         self.assertEqual(NodeB.IPMIUSER, self.configset['nodeB']['ipmiuser'])
         self.assertEqual(NodeB.IPMIPASSWORD, self.configset['nodeB']['ipmipassword'])
-        
+   
+    def testFillMgmtDefaults(self):
+        configreader._fillNodeDefaults(self.testFile)
+
+        self.assertEqual(MgmtVM.IPADDRESS, self.configset['mgmt']['ip'])
+
+
     def testFillThinclientDefaults(self):
         configreader._fillThinclientDefaults(self.testFile)
 
@@ -91,10 +108,10 @@ class ConfigreaderTestSuite(unittest.TestCase):
         self.assertEqual(ThinClient.SERVERA_ADDR, self.configset['thinclient']['serverA_addr'])
         self.assertEqual(ThinClient.SERVERB_ADDR, self.configset['thinclient']['serverB_addr'])
 
-    @patch('cloudtop.helper.configreader._fillSwitchDefaults')
-    @patch('cloudtop.helper.configreader._fillNodeDefaults')
-    @patch('cloudtop.helper.configreader._fillThinclientDefaults')
-    @patch('cloudtop.helper.configreader._fillConfigDefaults')
+    @patch('configreader._fillSwitchDefaults')
+    @patch('configreader._fillNodeDefaults')
+    @patch('configreader._fillThinclientDefaults')
+    @patch('configreader._fillConfigDefaults')
     def testFillAllDefaults(self, config, thinclient, node, switch):
         configreader.fillAllDefaults(self.testFile)
 

@@ -12,8 +12,8 @@
 # OK FOR THE BUILD TO BE READY FOR DEPLOYMENT/USE!!!
 #
 # Author: Isabel Montes
-# Latest Update: February 10, 2014
-# Updated by: Kenan Virtucio
+# Latest Update: June 17, 2014
+# Updated by: Gene Paul Quevedo
 # ---------------------------------------------------------
 
 
@@ -629,6 +629,25 @@ chkpower () {
 	return 0
 }
 
+# Function for checking if python-twisted was installed on the 
+# baremetal
+
+chktwisted () {
+
+	echo "Check if python twisted exists"
+
+	rpm -qa | grep  "python-twisted"
+	if [ $? -eq 0 ]; then 
+		echo "python twisted package installed"
+		echo_success
+		echo
+	else
+		echo "python-twisted not previously installed. Please install via yum"
+		echo_failure
+		echo
+	fi
+}
+
 # Function for checking BT Sync Components
 chkbt () {
 	#check config file
@@ -1140,6 +1159,228 @@ chkselinux(){
 	fi
 }
 
+#Function that checks munin, nginx, and SNMP plugins
+chkmunin(){
+	echo "Checking if nginx is running and configured properly.. "
+	status=`service nginx status`
+	if [[ $status = "nginx: Nginx webserver is not running." ]]; then
+		echo -ne "\tnginx ..not running!"
+		echo_failure
+		echo
+		return 1
+	else
+		echo -ne "\tnginx ..running!"
+		echo_success
+		echo
+		
+		#Check config file for munin webpage
+		webpage_port=`cat /etc/nginx/conf.d/munin-site.conf |grep -v '^#'|grep -i 'listen 8000'`
+		if [ $? -eq 0 ]; then
+			echo -ne "\tmunin webpage port.. configured!"
+			echo_success
+			echo
+		else
+			echo -ne "\tmunin webpage port.. not configured!"
+			echo_failure
+			echo
+			return 1
+		fi
+		
+		passwd_file=`cat /etc/nginx/conf.d/munin-site.conf |grep -v '^#'|grep -i 'auth_basic_user_file /var/www/html/munin/.htpasswd'`
+		if [ $? -eq 0 ]; then
+			echo -ne "\tmunin htpasswd file.. configured!"
+			echo_success
+			echo
+		else
+			echo -ne "\tmunin htpasswd file.. not configured!"
+			echo_failure
+			echo
+			return 1
+		fi
+
+		t1_access=`cat /etc/nginx/conf.d/munin-site.conf |grep -v '^#'|grep -i "allow 10.225.1.0/24"`
+		if [ $? -eq 0 ]; then
+			echo -ne "\tmunin t1 network access.. configured!"
+			echo_success
+			echo
+		else
+			echo -ne "\tmunin t1 network access.. not configured!"
+			echo_failure
+			echo
+			return 1
+		fi
+		
+		t3_network=$(ifconfig br0 | grep 'inet addr' | cut -d':' -f2 | cut -d' ' -f1 | cut -d'.' -f1-3).0
+		t3_access=`cat /etc/nginx/conf.d/munin-site.conf |grep -v '^#'|grep -i "allow $t3_network/24"`
+		if [ $? -eq 0 ]; then
+			echo -ne "\tmunin t3 network access.. configured!"
+			echo_success
+			echo
+		else
+			echo -ne "\tmunin t3 network access.. not configured!"
+			echo_failure
+			echo
+			return 1
+		fi
+		
+	fi
+	
+	echo "Checking if munin-node is running and configured properly.. "
+	status=`service munin-node status`
+	if [[ $status = "nginx: Munin-Node is not running." ]]; then
+		echo -ne "\tmunin-node ..not running!"
+		echo_failure
+		echo
+		return 1
+	else
+		echo -ne "\tmunin-node ..running!"
+		echo_success
+		echo
+        fi
+        
+        echo "Checking if SNMP plugins are installed.. "
+	node_type=$(uname -n | cut -d '.' -f1)
+        if [[ $node_type = "sa" ]]; then
+                sa_status=`ping -c 1 -t 1 sa.local`
+                if [ $? -eq 0 ]; then
+			echo -ne "\thost 'sa.local' is UP!"
+			echo_success
+			echo
+		else
+			echo -ne "\thost 'sa.local' is DOWN!"
+			echo_failure
+			echo
+			return 1
+		fi
+		if [[ -z $(munin-node-configure --shell --snmp sa.local --snmpversion 2c --snmpcommunity CLOUDTOPT3) ]]; then
+                        echo -ne "\tSNMP plugins for sa.local.. configured!"
+			echo_success
+			echo
+		else
+			echo -ne "\tSNMP plugins for sa.local.. not configured!"
+			echo_failure
+			echo
+			return 1
+                fi
+                
+                rdpa_status=`ping -c 1 -t 1 rdpa.local`
+                if [ $? -eq 0 ]; then
+			echo -ne "\thost 'rdpa.local' is UP!"
+			echo_success
+			echo
+		else
+			echo -ne "\thost 'rdpa.local' is DOWN!"
+			echo_failure
+			echo
+			return 1
+		fi
+		if [[ -z $(munin-node-configure --shell --snmp rdpa.local --snmpversion 2c --snmpcommunity CLOUDTOPT3) ]]; then
+                        echo -ne "\tSNMP plugins for rdpa.local.. configured!"
+			echo_success
+			echo
+		else
+			echo -ne "\tSNMP plugins for rdpa.local.. not configured!"
+			echo_failure
+			echo
+			return 1
+                fi
+                
+                mgmt_status=`ping -c 1 -t 1 mgmt.local`
+                if [ $? -eq 0 ]; then
+			echo -ne "\thost 'mgmt.local' is UP!"
+			echo_success
+			echo
+		else
+			echo -ne "\thost 'mgmt.local' is DOWN!"
+			echo_failure
+			echo
+			return 1
+		fi
+		if [[ -z $(munin-node-configure --shell --snmp mgmt.local --snmpversion 2c --snmpcommunity CLOUDTOPT3) ]]; then
+                        echo -ne "\tSNMP plugins for mgmt.local.. configured!"
+			echo_success
+			echo
+		else
+			echo -ne "\tSNMP plugins for mgmt.local.. not configured!"
+			echo_failure
+			echo
+			return 1
+                fi
+	elif  [[ $node_type = "sb" ]]; then
+                sb_status=`ping -c 1 -t 1 sb.local`
+                if [ $? -eq 0 ]; then
+			echo -ne "\thost 'sb.local' is UP!"
+			echo_success
+			echo
+		else
+			echo -ne "\thost 'sb.local' is DOWN!"
+			echo_failure
+			echo
+			return 1
+		fi
+		if [[ -z $(munin-node-configure --shell --snmp sb.local --snmpversion 2c --snmpcommunity CLOUDTOPT3) ]]; then
+                        echo -ne "\tSNMP plugins for sb.local.. configured!"
+			echo_success
+			echo
+		else
+			echo -ne "\tSNMP plugins for sb.local.. not configured!"
+			echo_failure
+			echo
+			return 1
+                fi
+                
+                rdpb_status=`ping -c 1 -t 1 rdpb.local`
+                if [ $? -eq 0 ]; then
+			echo -ne "\thost 'rdpb.local' is UP!"
+			echo_success
+			echo
+		else
+			echo -ne "\thost 'rdpb.local' is DOWN!"
+			echo_failure
+			echo
+			return 1
+		fi
+		if [[ -z $(munin-node-configure --shell --snmp rdpb.local --snmpversion 2c --snmpcommunity CLOUDTOPT3) ]]; then
+                        echo -ne "\tSNMP plugins for rdpb.local.. configured!"
+			echo_success
+			echo
+		else
+			echo -ne "\tSNMP plugins for rdpb.local.. not configured!"
+			echo_failure
+			echo
+			return 1
+                fi
+                
+                lms_status=`ping -c 1 -t 1 lms.local`
+                if [ $? -eq 0 ]; then
+			echo -ne "\thost 'lms.local' is UP!"
+			echo_success
+			echo
+		else
+			echo -ne "\thost 'lms.local' is DOWN!"
+			echo_failure
+			echo
+			return 1
+		fi
+		if [[ -z $(munin-node-configure --shell --snmp lms.local --snmpversion 2c --snmpcommunity CLOUDTOPT3) ]]; then
+                        echo -ne "\tSNMP plugins for lms.local.. configured!"
+			echo_success
+			echo
+		else
+			echo -ne "\tSNMP plugins for lms.local.. not configured!"
+			echo_failure
+			echo
+			return 1
+                fi
+        else
+                echo -ne "\tnode '$node_type' is neither 'sa' nor 'sb'"
+		echo_failure
+		echo
+		return 1
+        fi
+}
+
+
 # Function to check the return value, and exit if it is not 0
 # This is used to check the return value of each function after it is run
 # If a check fails, the gatekeep script exits.
@@ -1241,6 +1482,10 @@ error $? "pingtest"
 chkinternet
 error $? "chkinternet"
 
+# Check python-twisted package
+chktwisted
+error $?
+
 # Cluster Configuration checks
 chkcluster
 error $? "chkcluster"
@@ -1288,6 +1533,10 @@ error $? "chkiptables"
 # Check SELinux
 chkselinux
 error $? "chkselinux"
+
+# Check munin
+chkmunin
+error $?
 
 # If all the tests are OK, the LOG file is deleted.
 # If there are tests that failed, LOG file is retained so that

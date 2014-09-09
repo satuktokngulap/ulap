@@ -1,0 +1,4 @@
+#!/bin/bash
+export PYTHONPATH="/usr/scripts/powerdaemon/src/."
+
+/usr/scripts/powerdaemon/src/PowerManager.py &

@@ -1,0 +1,4 @@
+Copy upstart script 'lb_rdp.conf' to /etc/init
+Issue command 'initctl list' and see if lb_rdp is on the list
+If status is 'stop/wating' issue command 'start lb_rdp'
+Issue command 'status lb_rdp' and the process 'lb_rdp' should be running

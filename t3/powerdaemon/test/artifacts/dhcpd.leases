@@ -1,0 +1,452 @@
+# The format of this file is documented in the dhcpd.leases(5) manual page.
+# This lease file was written by isc-dhcp-4.1.1-P1
+
+lease 192.168.153.135 {
+  starts 1 2014/07/14 05:01:02;
+  ends 1 2014/07/14 05:03:02;
+  tstp 1 2014/07/14 05:03:02;
+  cltt 1 2014/07/14 05:01:02;
+  binding state free;
+  hardware ethernet fa:16:3e:e1:42:29;
+  client-hostname "thin-client-gold";
+}
+lease 192.168.153.107 {
+  starts 1 2014/07/14 05:01:02;
+  ends 1 2014/07/14 05:03:02;
+  tstp 1 2014/07/14 05:03:02;
+  cltt 1 2014/07/14 05:01:02;
+  binding state free;
+  hardware ethernet fa:16:3e:2e:cd:84;
+  client-hostname "thin-client-gold";
+}
+lease 192.168.153.119 {
+  starts 1 2014/07/14 01:06:41;
+  ends 1 2014/07/14 05:06:41;
+  tstp 1 2014/07/14 05:06:41;
+  cltt 1 2014/07/14 01:06:41;
+  binding state free;
+  hardware ethernet 40:d8:55:0c:11:72;
+}
+lease 192.168.153.127 {
+  starts 1 2014/07/14 05:08:24;
+  ends 1 2014/07/14 05:10:24;
+  tstp 1 2014/07/14 05:10:24;
+  cltt 1 2014/07/14 05:08:24;
+  binding state free;
+  hardware ethernet fa:16:3e:27:5c:80;
+  client-hostname "thin-client-gold";
+}
+lease 192.168.153.115 {
+  starts 1 2014/07/14 05:08:24;
+  ends 1 2014/07/14 05:10:24;
+  tstp 1 2014/07/14 05:10:24;
+  cltt 1 2014/07/14 05:08:24;
+  binding state free;
+  hardware ethernet fa:16:3e:75:54:2c;
+  client-hostname "thin-client-gold";
+}
+lease 192.168.153.100 {
+  starts 1 2014/07/14 05:08:24;
+  ends 1 2014/07/14 05:10:24;
+  tstp 1 2014/07/14 05:10:24;
+  cltt 1 2014/07/14 05:08:24;
+  binding state free;
+  hardware ethernet fa:16:3e:ed:e9:93;
+  client-hostname "thin-client-gold";
+}
+lease 192.168.153.104 {
+  starts 1 2014/07/14 05:08:25;
+  ends 1 2014/07/14 05:10:25;
+  tstp 1 2014/07/14 05:10:25;
+  cltt 1 2014/07/14 05:08:25;
+  binding state free;
+  hardware ethernet fa:16:3e:a3:9b:e0;
+  client-hostname "thin-client-gold";
+}
+lease 192.168.153.105 {
+  starts 1 2014/07/14 05:08:25;
+  ends 1 2014/07/14 05:10:25;
+  tstp 1 2014/07/14 05:10:25;
+  cltt 1 2014/07/14 05:08:25;
+  binding state free;
+  hardware ethernet fa:16:3e:cf:34:b0;
+  client-hostname "thin-client-gold";
+}
+lease 192.168.153.126 {
+  starts 1 2014/07/14 05:08:26;
+  ends 1 2014/07/14 05:10:26;
+  tstp 1 2014/07/14 05:10:26;
+  cltt 1 2014/07/14 05:08:26;
+  binding state free;
+  hardware ethernet fa:16:3e:eb:e1:06;
+  client-hostname "thin-client-gold";
+}
+lease 192.168.153.124 {
+  starts 1 2014/07/14 05:08:26;
+  ends 1 2014/07/14 05:10:26;
+  tstp 1 2014/07/14 05:10:26;
+  cltt 1 2014/07/14 05:08:26;
+  binding state free;
+  hardware ethernet fa:16:3e:e0:67:4c;
+  client-hostname "thin-client-gold";
+}
+lease 192.168.153.101 {
+  starts 1 2014/07/14 05:08:26;
+  ends 1 2014/07/14 05:10:26;
+  tstp 1 2014/07/14 05:10:26;
+  cltt 1 2014/07/14 05:08:26;
+  binding state free;
+  hardware ethernet fa:16:3e:81:b7:cd;
+  client-hostname "thin-client-gold";
+}
+lease 192.168.153.134 {
+  starts 1 2014/07/14 05:39:34;
+  ends 1 2014/07/14 05:41:34;
+  tstp 1 2014/07/14 05:41:34;
+  cltt 1 2014/07/14 05:39:34;
+  binding state free;
+  hardware ethernet fa:16:3e:35:c8:03;
+  client-hostname "thin-client-gold";
+}
+lease 192.168.153.111 {
+  starts 1 2014/07/14 07:31:51;
+  ends 1 2014/07/14 07:33:51;
+  tstp 1 2014/07/14 07:33:51;
+  cltt 1 2014/07/14 07:31:51;
+  binding state free;
+  hardware ethernet fa:16:3e:ce:d2:53;
+  client-hostname "thin-client-gold";
+}
+lease 192.168.153.118 {
+  starts 1 2014/07/14 07:31:53;
+  ends 1 2014/07/14 07:33:53;
+  tstp 1 2014/07/14 07:33:53;
+  cltt 1 2014/07/14 07:31:53;
+  binding state free;
+  hardware ethernet fa:16:3e:05:16:ba;
+  client-hostname "thin-client-gold";
+}
+lease 192.168.153.113 {
+  starts 1 2014/07/14 07:31:53;
+  ends 1 2014/07/14 07:33:53;
+  tstp 1 2014/07/14 07:33:53;
+  cltt 1 2014/07/14 07:31:53;
+  binding state free;
+  hardware ethernet fa:16:3e:f6:ae:1a;
+  client-hostname "thin-client-gold";
+}
+lease 192.168.153.109 {
+  starts 1 2014/07/14 07:31:53;
+  ends 1 2014/07/14 07:33:53;
+  tstp 1 2014/07/14 07:33:53;
+  cltt 1 2014/07/14 07:31:53;
+  binding state free;
+  hardware ethernet fa:16:3e:72:69:58;
+  client-hostname "thin-client-gold";
+}
+lease 192.168.153.116 {
+  starts 1 2014/07/14 07:31:54;
+  ends 1 2014/07/14 07:33:54;
+  tstp 1 2014/07/14 07:33:54;
+  cltt 1 2014/07/14 07:31:54;
+  binding state free;
+  hardware ethernet fa:16:3e:d3:40:b6;
+  client-hostname "thin-client-gold";
+}
+lease 192.168.153.110 {
+  starts 1 2014/07/14 07:31:54;
+  ends 1 2014/07/14 07:33:54;
+  tstp 1 2014/07/14 07:33:54;
+  cltt 1 2014/07/14 07:31:54;
+  binding state free;
+  hardware ethernet fa:16:3e:fb:19:da;
+  client-hostname "thin-client-gold";
+}
+lease 192.168.153.125 {
+  starts 1 2014/07/14 07:32:26;
+  ends 1 2014/07/14 07:34:26;
+  tstp 1 2014/07/14 07:34:26;
+  cltt 1 2014/07/14 07:32:26;
+  binding state free;
+  hardware ethernet fa:16:3e:8c:1b:bd;
+  client-hostname "thin-client-gold";
+}
+lease 192.168.153.114 {
+  starts 1 2014/07/14 07:32:26;
+  ends 1 2014/07/14 07:34:26;
+  tstp 1 2014/07/14 07:34:26;
+  cltt 1 2014/07/14 07:32:26;
+  binding state free;
+  hardware ethernet fa:16:3e:58:b6:d7;
+  client-hostname "thin-client-gold";
+}
+lease 192.168.153.112 {
+  starts 1 2014/07/14 07:32:26;
+  ends 1 2014/07/14 07:34:26;
+  tstp 1 2014/07/14 07:34:26;
+  cltt 1 2014/07/14 07:32:26;
+  binding state free;
+  hardware ethernet fa:16:3e:2c:37:ad;
+  client-hostname "thin-client-gold";
+}
+lease 192.168.153.123 {
+  starts 1 2014/07/14 07:32:27;
+  ends 1 2014/07/14 07:34:27;
+  tstp 1 2014/07/14 07:34:27;
+  cltt 1 2014/07/14 07:32:27;
+  binding state free;
+  hardware ethernet fa:16:3e:6c:a6:32;
+  client-hostname "thin-client-gold";
+}
+lease 192.168.153.121 {
+  starts 1 2014/07/14 07:32:27;
+  ends 1 2014/07/14 07:34:27;
+  tstp 1 2014/07/14 07:34:27;
+  cltt 1 2014/07/14 07:32:27;
+  binding state free;
+  hardware ethernet fa:16:3e:be:9d:ea;
+  client-hostname "thin-client-gold";
+}
+lease 192.168.153.117 {
+  starts 1 2014/07/14 07:32:27;
+  ends 1 2014/07/14 07:34:27;
+  tstp 1 2014/07/14 07:34:27;
+  cltt 1 2014/07/14 07:32:27;
+  binding state free;
+  hardware ethernet fa:16:3e:9e:ed:91;
+  client-hostname "thin-client-gold";
+}
+lease 192.168.153.122 {
+  starts 1 2014/07/14 07:33:32;
+  ends 1 2014/07/14 07:35:32;
+  tstp 1 2014/07/14 07:35:32;
+  cltt 1 2014/07/14 07:33:32;
+  binding state free;
+  hardware ethernet fa:16:3e:5f:b7:84;
+  client-hostname "thin-client-gold";
+}
+lease 192.168.153.129 {
+  starts 1 2014/07/14 07:33:34;
+  ends 1 2014/07/14 07:35:34;
+  tstp 1 2014/07/14 07:35:34;
+  cltt 1 2014/07/14 07:33:34;
+  binding state free;
+  hardware ethernet fa:16:3e:8f:07:ac;
+  client-hostname "thin-client-gold";
+}
+lease 192.168.153.120 {
+  starts 1 2014/07/14 07:33:34;
+  ends 1 2014/07/14 07:35:34;
+  tstp 1 2014/07/14 07:35:34;
+  cltt 1 2014/07/14 07:33:34;
+  binding state free;
+  hardware ethernet fa:16:3e:22:06:c3;
+  client-hostname "thin-client-gold";
+}
+lease 192.168.153.144 {
+  starts 1 2014/07/14 07:33:35;
+  ends 1 2014/07/14 07:35:35;
+  tstp 1 2014/07/14 07:35:35;
+  cltt 1 2014/07/14 07:33:35;
+  binding state free;
+  hardware ethernet fa:16:3e:55:46:89;
+  client-hostname "thin-client-gold";
+}
+lease 192.168.153.131 {
+  starts 1 2014/07/14 07:33:35;
+  ends 1 2014/07/14 07:35:35;
+  tstp 1 2014/07/14 07:35:35;
+  cltt 1 2014/07/14 07:33:35;
+  binding state free;
+  hardware ethernet fa:16:3e:12:fe:1a;
+  client-hostname "thin-client-gold";
+}
+lease 192.168.153.128 {
+  starts 1 2014/07/14 07:33:35;
+  ends 1 2014/07/14 07:35:35;
+  tstp 1 2014/07/14 07:35:35;
+  cltt 1 2014/07/14 07:33:35;
+  binding state free;
+  hardware ethernet fa:16:3e:43:75:00;
+  client-hostname "thin-client-gold";
+}
+lease 192.168.153.146 {
+  starts 1 2014/07/14 07:33:36;
+  ends 1 2014/07/14 07:35:36;
+  tstp 1 2014/07/14 07:35:36;
+  cltt 1 2014/07/14 07:33:36;
+  binding state free;
+  hardware ethernet fa:16:3e:a4:47:2f;
+  client-hostname "thin-client-gold";
+}
+lease 192.168.153.138 {
+  starts 1 2014/07/14 07:33:36;
+  ends 1 2014/07/14 07:35:36;
+  tstp 1 2014/07/14 07:35:36;
+  cltt 1 2014/07/14 07:33:36;
+  binding state free;
+  hardware ethernet fa:16:3e:f1:7a:10;
+  client-hostname "thin-client-gold";
+}
+lease 192.168.153.132 {
+  starts 1 2014/07/14 07:33:36;
+  ends 1 2014/07/14 07:35:36;
+  tstp 1 2014/07/14 07:35:36;
+  cltt 1 2014/07/14 07:33:36;
+  binding state free;
+  hardware ethernet fa:16:3e:a7:3b:1d;
+  client-hostname "thin-client-gold";
+}
+lease 192.168.153.133 {
+  starts 1 2014/07/14 07:33:36;
+  ends 1 2014/07/14 07:35:36;
+  tstp 1 2014/07/14 07:35:36;
+  cltt 1 2014/07/14 07:33:36;
+  binding state free;
+  hardware ethernet fa:16:3e:5f:6c:f1;
+  client-hostname "thin-client-gold";
+}
+lease 192.168.153.130 {
+  starts 1 2014/07/14 07:35:16;
+  ends 1 2014/07/14 07:37:16;
+  tstp 1 2014/07/14 07:37:16;
+  cltt 1 2014/07/14 07:35:16;
+  binding state free;
+  hardware ethernet fa:16:3e:2e:a1:45;
+  client-hostname "thin-client-gold";
+}
+lease 192.168.153.145 {
+  starts 1 2014/07/14 07:35:17;
+  ends 1 2014/07/14 07:37:17;
+  tstp 1 2014/07/14 07:37:17;
+  cltt 1 2014/07/14 07:35:17;
+  binding state free;
+  hardware ethernet fa:16:3e:b2:c3:17;
+  client-hostname "thin-client-gold";
+}
+lease 192.168.153.140 {
+  starts 1 2014/07/14 07:35:17;
+  ends 1 2014/07/14 07:37:17;
+  tstp 1 2014/07/14 07:37:17;
+  cltt 1 2014/07/14 07:35:17;
+  binding state free;
+  hardware ethernet fa:16:3e:66:ea:c5;
+  client-hostname "thin-client-gold";
+}
+lease 192.168.153.141 {
+  starts 1 2014/07/14 07:35:17;
+  ends 1 2014/07/14 07:37:17;
+  tstp 1 2014/07/14 07:37:17;
+  cltt 1 2014/07/14 07:35:17;
+  binding state free;
+  hardware ethernet fa:16:3e:3f:24:98;
+  client-hostname "thin-client-gold";
+}
+lease 192.168.153.142 {
+  starts 1 2014/07/14 07:35:17;
+  ends 1 2014/07/14 07:37:17;
+  tstp 1 2014/07/14 07:37:17;
+  cltt 1 2014/07/14 07:35:17;
+  binding state free;
+  hardware ethernet fa:16:3e:d7:d0:4b;
+  client-hostname "thin-client-gold";
+}
+lease 192.168.153.139 {
+  starts 1 2014/07/14 07:35:18;
+  ends 1 2014/07/14 07:37:18;
+  tstp 1 2014/07/14 07:37:18;
+  cltt 1 2014/07/14 07:35:18;
+  binding state free;
+  hardware ethernet fa:16:3e:64:f2:fc;
+  client-hostname "thin-client-gold";
+}
+lease 192.168.153.136 {
+  starts 1 2014/07/14 07:35:18;
+  ends 1 2014/07/14 07:37:18;
+  tstp 1 2014/07/14 07:37:18;
+  cltt 1 2014/07/14 07:35:18;
+  binding state free;
+  hardware ethernet fa:16:3e:36:53:b6;
+  client-hostname "thin-client-gold";
+}
+lease 192.168.153.103 {
+  starts 1 2014/07/14 07:35:18;
+  ends 1 2014/07/14 07:37:18;
+  tstp 1 2014/07/14 07:37:18;
+  cltt 1 2014/07/14 07:35:18;
+  binding state free;
+  hardware ethernet fa:16:3e:04:a5:a4;
+  client-hostname "thin-client-gold";
+}
+lease 192.168.153.147 {
+  starts 1 2014/07/14 07:35:19;
+  ends 1 2014/07/14 07:37:19;
+  tstp 1 2014/07/14 07:37:19;
+  cltt 1 2014/07/14 07:35:19;
+  binding state free;
+  hardware ethernet fa:16:3e:cd:2e:9c;
+  client-hostname "thin-client-gold";
+}
+lease 192.168.153.143 {
+  starts 1 2014/07/14 07:35:19;
+  ends 1 2014/07/14 07:37:19;
+  tstp 1 2014/07/14 07:37:19;
+  cltt 1 2014/07/14 07:35:19;
+  binding state free;
+  hardware ethernet fa:16:3e:da:39:2e;
+  client-hostname "thin-client-gold";
+}
+lease 192.168.153.149 {
+  starts 1 2014/07/14 07:36:28;
+  ends 1 2014/07/14 07:38:28;
+  tstp 1 2014/07/14 07:38:28;
+  cltt 1 2014/07/14 07:36:28;
+  binding state free;
+  hardware ethernet fa:16:3e:89:1f:a0;
+  client-hostname "thin-client-gold";
+}
+lease 192.168.153.150 {
+  starts 1 2014/07/14 07:36:28;
+  ends 1 2014/07/14 07:38:28;
+  tstp 1 2014/07/14 07:38:28;
+  cltt 1 2014/07/14 07:36:28;
+  binding state free;
+  hardware ethernet fa:16:3e:a6:4f:a7;
+  client-hostname "thin-client-gold";
+}
+lease 192.168.153.148 {
+  starts 1 2014/07/14 07:36:29;
+  ends 1 2014/07/14 07:38:29;
+  tstp 1 2014/07/14 07:38:29;
+  cltt 1 2014/07/14 07:36:29;
+  binding state free;
+  hardware ethernet fa:16:3e:06:59:a2;
+  client-hostname "thin-client-gold";
+}
+lease 192.168.153.137 {
+  starts 1 2014/07/14 07:36:29;
+  ends 1 2014/07/14 07:38:29;
+  tstp 1 2014/07/14 07:38:29;
+  cltt 1 2014/07/14 07:36:29;
+  binding state free;
+  hardware ethernet fa:16:3e:dd:a9:00;
+  client-hostname "thin-client-gold";
+}
+lease 192.168.153.108 {
+  starts 1 2014/07/14 07:25:16;
+  ends 1 2014/07/14 11:25:16;
+  tstp 1 2014/07/14 11:25:16;
+  cltt 1 2014/07/14 07:25:16;
+  binding state free;
+  hardware ethernet 40:d8:55:0c:10:45;
+}
+lease 192.168.153.102 {
+  starts 1 2014/07/14 07:25:16;
+  ends 1 2014/07/14 11:25:16;
+  tstp 1 2014/07/14 11:25:16;
+  cltt 1 2014/07/14 07:25:16;
+  binding state free;
+  hardware ethernet 40:d8:55:0c:11:0a;
+}
+server-duid "\000\001\000\001\032\314\373ZRT\000\037\024\261";
+
