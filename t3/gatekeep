@@ -1145,7 +1145,10 @@ chkselinux(){
 # If a check fails, the gatekeep script exits.
 error () {
 	if [ $1 -ne 0 ]; then
+		echo "Failed" > $2 + '.log'
 		exit $1
+	else
+		echo "OK" > $2 + '.log'
 	fi
 }
 
@@ -1160,7 +1163,7 @@ if [ $# -ne 0 ]; then
 	do
 		LOG="$LOG.$command"
 		type $command &>/dev/null && $command || echo "Error running '"$command"'!"
-		error $?
+		error $? $command
 	done
 	exit $?
 fi
@@ -1176,7 +1179,7 @@ echo
 
 # HOSTNAME - Check hostname naming convention
 chkname
-error $?
+error $? "chkname"
 
 # Disk Structure and Capacity - Check disk sizes
 echo -n "Checking sda size..."
@@ -1208,83 +1211,83 @@ fi
 # /etc/hosts entries
 echo "Checking if /etc/hosts entries are complete..."
 chkhosts
-error $?
+error $? "chkhosts"
 
 # DRBD Checks
 # Check the config
 drbdconfig
-error $?
+error $? "drbdconfig"
 
 # Check the status of resources
 echo "Checking status of resources..."
 res=( `drbd-overview | gawk -F'[: ]' '{print $4}'|cut -d'/' -f1` )
 drbdcheck ${res[@]}
-error $?
+error $? "drbdresources"
 
 # OS Version and Architecture check
 checkos
-error $?
+error $? "OScheck"
 
 # Network Checks
 # Check the interfaces
 chkiface
-error $?
+error $? "nwkinterfaces"
 
 # Do a ping test to all the addresses listed in /etc/hosts
 pingtest
-error $?
+error $? "pingtest"
 
 # Check if internet connection is available 
 chkinternet
-error $?
+error $? "chkinternet"
 
 # Cluster Configuration checks
 chkcluster
-error $?
+error $? "chkcluster"
 
 # VM Checks
 # Check if VMs are configured to autostart
 chkvmstart
-error $?
+error $? "chkvmstart"
 
 # Check if the VM xml files exist in the expected directory
 chkvmxml
-error $?
+error $? "chkvmxml"
 
 # Access checks
 chkusers
-error $?
+error $? "chkusers"
 
 # Check SNMP Service
 chksnmp
-error $?
+error $? "chksnmp"
 
 # Check startup services
 chkstartup
-error $?
+error $? "chkstartup"
 
 # Check if ssh authenticatio via rsa keys is configured correctly
 testssh $PEER # Try to ssh to peer via hostname
-error $?
+error $? "testssh"
 
 testssh $( gethostip -d $PEER ) # Try to ssh to peer via IP address
-error $?
+error $? "testssh"
 
 # Check power management
 chkpower
-error $?
+error $? "chkpower"
 
 # Check nfs
 chknfs
-error $?
+error $? "chknfs"
 
 # Check iptables
 chkiptables
-error $?
+error $? "chkiptables"
 
 # Check SELinux
 chkselinux
-error $?
+error $? "chkselinux"
 
 # If all the tests are OK, the LOG file is deleted.
 # If there are tests that failed, LOG file is retained so that
