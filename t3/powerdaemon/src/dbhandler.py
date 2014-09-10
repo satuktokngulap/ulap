@@ -23,6 +23,7 @@ class DBHandler():
 		cls.conn = sqlite3.connect(Conf.MAPFILE)
 		cls.cursor = cls.conn.cursor()
 
+	#assumes correct data length. Needs exception handling later
 	@classmethod
 	def insert(cls, table, data):
 		logging.debug("insert operation performed for table %s" % table)
@@ -50,12 +51,13 @@ class ThinClientHandler(DBHandler):
 
 	
 	@classmethod
-	def updateThinClientWithPort(cls, ipaddress, macaddress, port):
+	def updateThinClientWithPort(cls, ipaddress, macaddress, port, sessionid=None):
 		logging.debug("updating DB entry for ThinClient with port %d" % port)
-		data = {"ipaddress": ipaddress , "macaddress": macaddress, "portnum": port }
+		data = {"ipaddress": ipaddress , "macaddress": macaddress, "portnum": port, "sessionid": sessionid }
 		query = "UPDATE thinclient SET \
 			ipaddress=:ipaddress \
 			,macaddress=:macaddress \
+			,sessionid=:sessionid \
 			WHERE portnum=:portnum"
 
 		cls.cursor.execute(query, data)

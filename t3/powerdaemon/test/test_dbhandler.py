@@ -130,13 +130,15 @@ class ThinClientHandlerTestSuite(unittest.TestCase):
 		query = "UPDATE thinclient SET \
 			ipaddress=:ipaddress \
 			,macaddress=:macaddress \
+			,sessionid=:sessionid \
 			WHERE portnum=:portnum"
 		port = 11
 		ipaddress ="10.234.1.2"
 		macaddress="as:12:we:34:rt:23"
-		data = {"ipaddress": ipaddress, "macaddress": macaddress, "portnum": port}
+		sessionid=None
+		data = {"ipaddress": ipaddress, "macaddress": macaddress, "portnum": port, "sessionid": None}
 
-		dbhandler.ThinClientHandler.updateThinClientWithPort(ipaddress, macaddress, port)
+		dbhandler.ThinClientHandler.updateThinClientWithPort(ipaddress, macaddress, port, sessionid)
 
 		dbhandler.DBHandler.cursor.execute.assert_called_with(query, data)
 
