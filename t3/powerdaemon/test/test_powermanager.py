@@ -649,6 +649,17 @@ class PowerManagerTestSuite(unittest.TestCase):
     testEvaluatePoENotif_PoEUpFail.skip = "pending"
 
     @patch('PowerManager.task')
+    @patch('PowerManager.Mapper')
+    def testEvaluatePoENotif_PowerUpCurrentPoE(self, mapper, task):
+        payload = ['\x07','\x01']
+        port = 7
+        self.powerManager.powerUpPoE = Mock()
+       
+        ret = self.powerManager.evaluatePoENotif(payload)
+
+        self.powerManager.powerUpPoE.assert_called_with(port)
+
+    @patch('PowerManager.task')
     def testEvaluateRDPRequest_turnOffTC(self, task):
         payload='\x08\x00'
         port = 8
@@ -679,7 +690,7 @@ class PowerManagerTestSuite(unittest.TestCase):
         self.powerManager.evaluateRDPRequest(payload)
 
         self.powerManager.powerUpPoE().addCallback.assert_called_with\
-            (task.deferLater, reactor, 5, mapper.addNewThinClient, port)
+            (task.deferLater, reactor, 10, mapper.addNewThinClient, port)
         # task.deferLater.assert_called_with(reactor,5, mapper.addNewThinClient, port)
 
     @patch('PowerManager.Mapper')

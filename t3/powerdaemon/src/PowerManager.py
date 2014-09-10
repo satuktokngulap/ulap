@@ -669,11 +669,10 @@ class PowerManager(DatagramProtocol):
             self.thinClientsInitialized = True
 
         if payload[1] == '\x01': #true
-            #d1 = self.powerUpPoE(port+1)
-            d1 = task.deferLater(reactor, 5, self.powerUpPoE, port+1)
+            d1 = self.powerUpPoE(port)
+            d2 = task.deferLater(reactor, 5, self.powerUpPoE, port+1)
             #errback here needed
-            #grace period of 25sec from PoE power to bootup of thinClient
-            d2 = task.deferLater(reactor, 1, Mapper.addNewThinClient, port)
+            d3 = task.deferLater(reactor, 1, Mapper.addNewThinClient, port)
             #d2 = Mapper.addNewThinClient(port)
             if not self.thinClientsInitialized:
                 self.PoECounter = self.PoECounter + 1
@@ -696,7 +695,7 @@ class PowerManager(DatagramProtocol):
             d.addCallback(Mapper.removeThinClient, tcport)
         elif requestedState == 1:
             d = self.powerUpPoE(tcport)
-            d.addCallback(task.deferLater, reactor, 5, Mapper.addNewThinClient, tcport)
+            d.addCallback(task.deferLater, reactor, 10, Mapper.addNewThinClient, tcport)
 
     #TODO: remove 
     def initializeThinClient(self):
