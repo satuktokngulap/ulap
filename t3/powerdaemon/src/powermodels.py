@@ -31,7 +31,7 @@ class PowerState():
     CRITICALBATTERY = '0x04'
 
 class SwitchState():
-    pass
+    STARTUP = True
 
 class Power():
     state = PowerState.AC
@@ -85,12 +85,15 @@ class ThinClient():
     SERVERA_ADDR = ('172.16.1.5', 8880)
     SERVERB_ADDR = ('172.16.1.6', 8880)
 
-    def __init__(self, IDtouple=None, portNum=None):
+    def __init__(self, IDtouple=None, portNum=None, sessionID=None):
         if IDtouple is not None:
             #assumes correct input
             self.setIPAddress(IDtouple[0])
             self.setMacAddress(IDtouple[1])
             self.setSwitchPoEPort(portNum)
+
+            #default
+            self.sessionID = self.setSessionID(sessionID)
 
     def getIPAddress(self):
         return self.ipAddress
@@ -105,7 +108,7 @@ class ThinClient():
     def setMacAddress(self, Mac):
         self.macAddress = Mac
 
-    def setSessionID(sef, Id):
+    def setSessionID(self, Id):
         self.sessionID = Id
 
     def getSessionID(self):
@@ -116,3 +119,13 @@ class ThinClient():
 
     def getSwitchPoEPort(self):
         return self.port
+
+class Session():
+
+    def __init__(self, sessionID=None, userID=None):
+        if sessionID is not None:
+            self.sessionID = sessionID
+        if userID is not None:
+            self.userID = userID
+
+
