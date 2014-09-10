@@ -2,16 +2,18 @@
 #address, etc
 #Author: Gene Paul L. Quevedo
 
-from powermodels import ThinClient, MgmtVM
+from powermodels import ThinClient, MgmtVM, Session
 from twisted.internet import defer, utils
 from dbhandler import ThinClientHandler
 
 import subprocess, logging, shlex, os
 import json
+import re
 
 class Mapper():
 
     thinClientsList = []
+    sessionList = []
     toupleFile = '/tmp/touple'
     jsonfile = '/tmp/map.json'
 
@@ -102,7 +104,8 @@ class Mapper():
             ip = tc.getIPAddress()
             mac = tc.getMacAddress()
             port = tc.getSwitchPoEPort()
-            outputlist.append({'ip': ip, 'mac': mac, 'port': port})
+            sessionid = tc.getSessionID()
+            outputlist.append({'ip': ip, 'mac': mac, 'port': port, 'sessionid': sessionid})
 
         return outputlist
 
@@ -147,7 +150,7 @@ class Mapper():
         return ret
 
     @classmethod
-    def getRDPSessionDetails(cls):
+    def getRDPSessionsViaXFinger(cls):
         cmd = '/usr/bin/ssh'
         paramsRDP1 = '-o "StrictHostKeyChecking no" root@%s "python /opt/xfinger.sh"' % ThinClient.SERVERA_ADDR[0]
         paramsRDP2 = '-o "StrictHostKeyChecking no" root@%s "python /opt/xfinger.sh"' % ThinClient.SERVERB_ADDR[0]
@@ -159,6 +162,63 @@ class Mapper():
 
         d = defer.DeferredList([d1, d2])
         return d
+
+    @classmethod
+    def parseXFingerResults(cls, results):
+        UIDList = []
+        PIDList = []
+        IPList = []
+        SessionList = []
+        for (success, value) in results:
+            if success:
+                uidresults = re.findall('(?<=UID\=)[0-9a-zA-Z]+', value)
+                pidresults = re.findall('(?<=PID\=)[0-9a-zA-Z]+', value)
+                ipresults  = re.findall('[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+', value)
+                if len(UIDList) != len(PIDList) or len(PIDList) != len(IPList):
+                    logging.error('error on xfinger results. Check xfinger script or xrdp logs')
+                    #throw exception?
+                else:
+                    UIDList = UIDList + uidresults
+                    PIDList = PIDList + pidresults
+                    IPList = IPList + ipresults
+
+            elif not success:
+                logging.debug('failure occured when executing xFinger')
+
+        tupledSessions = zip(UIDList,PIDList,IPList)
+        for s in tupledSessions:
+            sessionentry = {"sessionid": int(s[1]), "userid": s[0], "ipaddress": s[2]}
+            SessionList.append(sessionentry)
+
+        return SessionList
+
+    @classmethod
+    def updateSessionList(cls, sessionList):
+        cls.sessionList = []
+        for session in sessionList:
+            s = Session(session["sessionid"], session["userid"])
+            cls.sessionList.append(s)
+
+    #updates ThinClient on the ThinClientList w/ the appropriate session
+    @classmethod
+    def updateThinClientSessionAttribute(cls, session):
+        for tc in cls.thinClientsList:
+            ip = tc.getIPAddress
+            if ip == session["ipaddress"]:
+                tc.setSessionID(session["sessionid"])
+
+    #Top method
+    @classmethod
+    def updateSessions(cls):
+        d = cls.getRDPSessionsViaXFinger()
+        d.addCallback(cls.updateSessionListAndAttributes)
+
+    @classmethod
+    def updateSessionListAndAttributes(cls, sessionString):
+        sessionList = cls.parseXFingerResults(sessionString)
+        cls.updateSessionList(sessionList)
+        for session in sessionList:
+            cls.updateThinClientSessionAttribute(session)
 
     @classmethod
     def storeClientsToDB(cls):
