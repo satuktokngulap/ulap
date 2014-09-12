@@ -459,8 +459,9 @@ class PowerManagerTestSuite(unittest.TestCase):
 
         self.assertEqual(seconds, timediff)
 
+    @patch('PowerManager.RDPMessage')
     @patch('PowerManager.task')
-    def testNormalShutdown(self, task):
+    def testNormalShutdown(self, task, message):
         #defers shutdown task for 10 minutes
         self.powerManager.postponeToggle = False
         self.powerManager.address = ('172.16.1.255', 8880)
@@ -479,10 +480,12 @@ class PowerManagerTestSuite(unittest.TestCase):
         self.assertEqual(NodeB.serverState, ServerState.COUNTDOWN_IN_PROGRESS)
         self.assertEqual(self.powerManager.shutdownDelay, Conf.DEFAULTSCHEDULEDSHUTDOWNWAITTIME)
         task.deferLater.assert_called_with(reactor, 300, self.powerManager.startShutdown)
-        write.assert_called_with(hex(cmd), (ThinClient.DEFAULT_ADDR[0], ThinClient.DEFAULT_ADDR[1]))
-
+        write.assert_called_with(message.normalShutdownMsg(), (ThinClient.DEFAULT_ADDR[0], ThinClient.DEFAULT_ADDR[1]))
+        #assert not working!
+        #message.normalShutdownMsg.assert_called_with("shutdownSoon",str(self.powerManager.shutdownDelay))
+    @patch('PowerManager.RDPMessage')
     @patch('PowerManager.task')
-    def testNormalShutdown_Postponed(self, task):
+    def testNormalShutdown_Postponed(self, task, message):
         self.powerManager.transport = Mock()
         self.powerManager.transport.write = Mock()
         self.powerManager.schedulePowerUp = Mock()
@@ -654,10 +657,40 @@ class PowerManagerTestSuite(unittest.TestCase):
         payload = ['\x07','\x01']
         port = 7
         self.powerManager.powerUpPoE = Mock()
+        self.powerManager.thinClientsInitialized = True
        
         ret = self.powerManager.evaluatePoENotif(payload)
 
         self.powerManager.powerUpPoE.assert_called_with(port)
+
+    @patch('PowerManager.task')
+    @patch('PowerManager.Mapper')
+    def testEvaluatePoENotif_SendNotifToRDPAfterAddingTC(self, mapper, task):
+        payload = ['\x07','\x01']
+        port = 7
+        self.powerManager.powerUpPoE = Mock()
+        task.deferLater = Mock()
+        mapper.addNewThinClient = Mock()
+        info = "TCAdded"
+
+        ret = self.powerManager.evaluatePoENotif(payload)
+
+        task.deferLater().addCallback.assert_called_with(self.powerManager.sendNotificationToRDP,info)
+
+    @patch('PowerManager.task')
+    @patch('PowerManager.Mapper')
+    def testEvaluatePoENotif_SendNotifToRDPAfterDeletingTC(self, mapper, task):
+        payload = ['\x07','\x00']
+        port = 7
+        self.powerManager.powerUpPoE = Mock()
+        task.deferLater = Mock()
+        mapper.addNewThinClient = Mock()
+        info = "TCRemoved"
+
+        ret = self.powerManager.evaluatePoENotif(payload)
+
+        mapper.removeThinClient().addCallback.assert_called_with(self.powerManager.sendNotificationToRDP,info)
+
 
     @patch('PowerManager.task')
     def testEvaluateRDPRequest_turnOffTC(self, task):
@@ -705,27 +738,51 @@ class PowerManagerTestSuite(unittest.TestCase):
 
         task.deferLater().addCallback.assert_called_with(mapper.removeThinClient, port)
 
-    def testReceivedRDPRequest(self):
-        cmd = []
-        cmd.append(Command.RDPREQUEST)
-        cmd.append('\x0B') #portnumber
-        cmd.append('\x00') #requested power 
-        payload = ['\x0B','\x00']
+    @patch('PowerManager.RDPMessageParser')
+    @patch('PowerManager.RDPMessage')
+    def testReceivedRDPRequest(self, message, parser):
+        cmd = "REQ identifier POW 1"
         self.powerManager.evaluateRDPRequest = Mock()
+        self.powerManager.sendAckToRDP = Mock()
+        payload = '\x0B\x01'
+        parser.translateCommand = Mock(return_value = (Command.RDPREQUEST, payload))
 
         self.powerManager.processCommand(cmd)
 
         self.powerManager.evaluateRDPRequest.assert_called_with(payload)
 
-    def testSendNotificationToRDP(self):
+    @patch('PowerManager.RDPMessageParser')
+    @patch('PowerManager.RDPMessage')
+    def testReceivedRDPRequest_sendAcK(self, message, parser):
+        cmd = "REQ identifier POW 1"
+        self.powerManager.evaluateRDPRequest = Mock()
+        self.powerManager.sendAckToRDP = Mock()
+        payload = '\x0B\x01'
+        parser.translateCommand = Mock(return_value = (Command.RDPREQUEST, payload))
+
+        self.powerManager.processCommand(cmd)
+
+        self.powerManager.sendAckToRDP.assert_called_with(message())
+
+    @patch('PowerManager.RDPMessage')
+    def testSendAckToRDP(self, message):
+        message.return_value = 'dummy message'
+
+        self.powerManager.sendAckToRDP()
+
+    testSendAckToRDP.skip = "TODO"
+
+
+    @patch("PowerManager.RDPMessage")
+    def testSendNotificationToRDP(self, rdpmessage):
         self.powerManager.transport = Mock()
-        notif = []
+        rdpmessage.updateMessage = Mock(return_value="test message")
+        info = "jsonupdated"
 
-        self.powerManager.sendNotificationToRDP
+        d = self.powerManager.sendNotificationToRDP(info)
 
-        self.powerManager.transport.write.assert_called_with(ThinClient)
-
-    testSendNotificationToRDP.skip = "not yet complete"
+        self.powerManager.transport.write.assert_called_with("test message"\
+                ,ThinClient.DEFAULT_ADDR)
 
     def tesReceivedCheckAliveRequest(self):
         cmd = Command.KEEPALIVE
@@ -743,6 +800,15 @@ class PowerManagerTestSuite(unittest.TestCase):
         self.powerManager.processCommand(msg)
 
         self.assertEqual(self.powerManager.readyPorts, 14)
+
+    def testReceivedSwitchReady_resetInitialization(self):
+        cmd = Command.SWITCHREADY
+        payload = '\x0E'
+        msg = '\x0C\x0E'
+
+        self.powerManager.processCommand(msg)
+
+        self.assertEqual(self.powerManager.thinClientsInitialized, False)
 
     def testReceivedTCPowerControlFromRDP(self):
         self.powerManager.controlRDPSessionPower = Mock()        

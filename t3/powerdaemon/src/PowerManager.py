@@ -25,6 +25,8 @@ from powermodels import Conf, NodeA, NodeB, Switch, ThinClient, Power, MasterTC
 from powermodels import ServerState, PowerState, SwitchState
 from mapper import Mapper
 from dbhandler import DBHandler
+from messageparser import Command, RDPMessageParser
+from messagebuilder import RDPMessage
 
 #change on deployment
 from configreader import fillAllDefaults
@@ -62,29 +64,6 @@ class IPMISecurity():
         IPMIpasswdfile.write(ciphertext)
         IPMIpasswdfile.close()
         
-#Power Conf class
-
-class Command():
-    #switch commands & notifications
-    SHUTDOWN_IMMEDIATE = '\x05'
-    AC_RESTORED = '\x02'
-    KEEPALIVE = '\x04'
-    SWITCHREADY = '\x0C'
-
-    
-    #thinclient commands & notifications
-    SHUTDOWN_CANCEL = '\x09'
-    SHUTDOWN_NORMAL = '\x06'
-    SHUTDOWN_REQUEST = '\x08'
-    REDUCE_POWER = '\x03'
-    POSTPONE = '1'
-    POENOTIF = '\x07'
-
-
-    #from RDP
-    RDPREQUEST ='\x0B'
-    RDPSESSIONPOWER = '\x0D'
-    UPDATE = '\x0A'
 
 class ServerNotifs():
     #notifications to ThinClients/RDP Server
@@ -507,7 +486,8 @@ class PowerManager(DatagramProtocol):
     def normalShutdown(self):
         cmd = ServerNotifs.NORMAL_SHUTDOWN_START_COUNTDOWN | Conf.DEFAULTSCHEDULEDSHUTDOWNWAITTIME
 
-        self.transport.write(hex(cmd), (ThinClient.DEFAULT_ADDR[0],ThinClient.DEFAULT_ADDR[1]))
+        self.transport.write(RDPMessage.normalShutdownMsg('shutdownSoon', str(self.shutdownDelay))\
+                , ThinClient.DEFAULT_ADDR)
         if self.postponeToggle == False:
             logging.debug("no postponement received. Scheduled shutdown will now proceed")
             NodeA.serverState = ServerState.COUNTDOWN_IN_PROGRESS
@@ -571,12 +551,12 @@ class PowerManager(DatagramProtocol):
         #check status of CPU
         logging.debug("processing datagram %s" % msg)
         payload = None
+        rdpmsg = None
         if len(msg) > 4:
             logging.debug("datagram received from thinclient with length %d" % len(msg))
-            if msg[1] == 'x':
-                #command came from the thinclient, postprocess
-                payload = msg[4:9]
-                command = msg[2]
+          
+            command,payload = RDPMessageParser.translateCommand(msg)
+            rdpmsg = RDPMessage(msg)
         else:
             logging.debug("datagram received from switch")
             if len(msg) > 1: payload = msg[1:]
@@ -593,9 +573,9 @@ class PowerManager(DatagramProtocol):
                 self.executeReducedPowerMode()
             elif NodeB.serverState == ServerState.SHUTDOWN_IN_PROGRESS:
                 #need handling here?
-                logging.debug("ignoring Singe Server Mode request because 1 node is shutting down")
+                logging.debug("ignoring Single Server Mode request because 1 node is shutting down")
             elif NodeB.serverSate == ServerState.OFF:
-                logging.debug("ignoring Singe Server Mode request because 1 node is already down")
+                logging.debug("ignoring Single Server Mode request because 1 node is already down")
         elif command == Command.SHUTDOWN_CANCEL:
             if NodeA.serverState == ServerState.COUNTDOWN_IN_PROGRESS and\
                 NodeB.serverState == ServerState.COUNTDOWN_IN_PROGRESS:
@@ -634,15 +614,16 @@ class PowerManager(DatagramProtocol):
                 logging.debug("deprecated normal shutdown requested. ignoring")
         elif command == Command.POENOTIF:
             logging.debug("PoE notif from switch received")
-            #self.waitingForPoEConfirm = False
             self.evaluatePoENotif(payload)
         elif command == Command.RDPREQUEST:
             logging.debug("notification from RDP received")
+            self.sendAckToRDP(rdpmsg)
             self.evaluateRDPRequest(payload)
         elif command == Command.KEEPALIVE:
             self.transport.write(command, (Switch.IPADDRESS, 8880))
             logging.debug('replying to switch Checkalive packet')
         elif command == Command.SWITCHREADY:
+            self.thinClientsInitialized = False
             self.readyPorts = ord(payload)
             logging.debug('switch sents ready ports on startup')
         elif command == Command.RDPSESSIONPOWER:
@@ -669,16 +650,20 @@ class PowerManager(DatagramProtocol):
             self.thinClientsInitialized = True
 
         if payload[1] == '\x01': #true
-            d1 = self.powerUpPoE(port)
+            d1 = None   
+            if self.thinClientsInitialized:
+                d1 = self.powerUpPoE(port)
             d2 = task.deferLater(reactor, 5, self.powerUpPoE, port+1)
             #errback here needed
+            #d3 should be callback for d2
             d3 = task.deferLater(reactor, 1, Mapper.addNewThinClient, port)
-            #d2 = Mapper.addNewThinClient(port)
+            d3.addCallback(self.sendNotificationToRDP,'TCAdded')
             if not self.thinClientsInitialized:
                 self.PoECounter = self.PoECounter + 1
             ret = d1
         elif payload[1] == '\x00':
             d = Mapper.removeThinClient(port)
+            d.addCallback(self.sendNotificationToRDP,'TCRemoved')
             if self.thinClientsInitialized == False:
                 self.PoECounter = self.PoECounter + 1
             ret = d
@@ -696,6 +681,10 @@ class PowerManager(DatagramProtocol):
         elif requestedState == 1:
             d = self.powerUpPoE(tcport)
             d.addCallback(task.deferLater, reactor, 10, Mapper.addNewThinClient, tcport)
+
+    def sendNotificationToRDP(self, info):
+        msg = RDPMessage.updateMessage(info)
+        self.transport.write(msg, ThinClient.DEFAULT_ADDR)
 
     #TODO: remove 
     def initializeThinClient(self):
