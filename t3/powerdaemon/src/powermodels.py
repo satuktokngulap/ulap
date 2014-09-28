@@ -84,8 +84,9 @@ class ThinClient():
     DEFAULT_ADDR = ('172.16.1.5', 8880)
     SERVERA_ADDR = ('172.16.1.5', 8880)
     SERVERB_ADDR = ('172.16.1.6', 8880)
+    ThinClientInitialized = False
 
-    def __init__(self, IDtouple=None, portNum=None, sessionID=None):
+    def __init__(self, IDtouple=None, portNum=None, sessionID=None, userID=None):
         if IDtouple is not None:
             #assumes correct input
             self.setIPAddress(IDtouple[0])
@@ -93,7 +94,7 @@ class ThinClient():
             self.setSwitchPoEPort(portNum)
 
             #default
-            self.sessionID = self.setSessionID(sessionID)
+            self.setSessionID(sessionID)
 
     def getIPAddress(self):
         return self.ipAddress
@@ -114,6 +115,12 @@ class ThinClient():
     def getSessionID(self):
         return self.sessionID
 
+    def setUserID(self, Id):
+        self.userID = Id
+
+    def getUserID(self):
+        return self.userID
+
     def setSwitchPoEPort(self, Port):
         self.port = Port
 
@@ -128,4 +135,15 @@ class Session():
         if userID is not None:
             self.userID = userID
 
+    def setUserID(self, Id):
+        self.userID = Id
+
+    def getUserID(self):
+        return self.userID
+
+    def setSessionID(self, Id):
+        self.sessionID = Id
+
+    def getSessionID(self):
+        return self.sessionID
 
