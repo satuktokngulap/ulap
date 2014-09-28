@@ -105,7 +105,8 @@ class Mapper():
             mac = tc.getMacAddress()
             port = tc.getSwitchPoEPort()
             sessionid = tc.getSessionID()
-            outputlist.append({'ip': ip, 'mac': mac, 'port': port, 'sessionid': sessionid})
+            userid = cls.getUserIDGivenSessionID(sessionid)
+            outputlist.append({'ip': ip, 'mac': mac, 'port': port, 'sessionid': sessionid, 'userid': userid})
 
         return outputlist
 
@@ -138,6 +139,7 @@ class Mapper():
 
         return d
 
+    #unused
     @classmethod
     def getSessionIPGivenSessionID(cls, text, ID):
         text = text.split()
@@ -150,10 +152,21 @@ class Mapper():
         return ret
 
     @classmethod
+    def getUserIDGivenSessionID(cls, ID):
+        userid = None
+        for session in cls.sessionList:
+            sessionid = session.getSessionID()
+            if sessionid == ID:
+                userid = session.getUserID()
+
+        return userid
+
+
+    @classmethod
     def getRDPSessionsViaXFinger(cls):
         cmd = '/usr/bin/ssh'
-        paramsRDP1 = '-o "StrictHostKeyChecking no" root@%s "python /opt/xfinger.sh"' % ThinClient.SERVERA_ADDR[0]
-        paramsRDP2 = '-o "StrictHostKeyChecking no" root@%s "python /opt/xfinger.sh"' % ThinClient.SERVERB_ADDR[0]
+        paramsRDP1 = '-o "StrictHostKeyChecking no" root@%s "/opt/xfinger.sh"' % ThinClient.SERVERA_ADDR[0]
+        paramsRDP2 = '-o "StrictHostKeyChecking no" root@%s "/opt/xfinger.sh"' % ThinClient.SERVERB_ADDR[0]
         paramsRDP1 = shlex.split(paramsRDP1)
         paramsRDP2 = shlex.split(paramsRDP2)
 
@@ -178,6 +191,7 @@ class Mapper():
                     logging.error('error on xfinger results. Check xfinger script or xrdp logs')
                     #throw exception?
                 else:
+                    logging.debug("XRDP session parsed")
                     UIDList = UIDList + uidresults
                     PIDList = PIDList + pidresults
                     IPList = IPList + ipresults
@@ -196,6 +210,7 @@ class Mapper():
     def updateSessionList(cls, sessionList):
         cls.sessionList = []
         for session in sessionList:
+            logging.debug("adding session object to sessionlist")
             s = Session(session["sessionid"], session["userid"])
             cls.sessionList.append(s)
 
@@ -203,15 +218,31 @@ class Mapper():
     @classmethod
     def updateThinClientSessionAttribute(cls, session):
         for tc in cls.thinClientsList:
-            ip = tc.getIPAddress
+            ip = tc.getIPAddress()
+            # logging.debug("ip on thinclient: %send" % ip)
+            # logging.debug("ip on session: %send" % session["ipaddress"])
             if ip == session["ipaddress"]:
+                logging.debug('modifying thinclient object')
                 tc.setSessionID(session["sessionid"])
+
+    @classmethod
+    def resetSessionList(cls):
+        cls.sessionList = [] 
+
+    @classmethod
+    def removeSessionsOnThinclients(cls):
+        for tc in cls.thinClientsList:
+            tc.setSessionID(None)
 
     #Top method
     @classmethod
     def updateSessions(cls):
+        logging.debug("updating sessions due to login/logout event")
+        cls.resetSessionList()
+        cls.removeSessionsOnThinclients()
         d = cls.getRDPSessionsViaXFinger()
         d.addCallback(cls.updateSessionListAndAttributes)
+        d.addCallback(cls.sendMapToRDP)
 
     @classmethod
     def updateSessionListAndAttributes(cls, sessionString):
