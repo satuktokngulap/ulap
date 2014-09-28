@@ -11,6 +11,8 @@
 import logging, os, signal, re
 import time as timer
 import ConfigParser
+import shlex
+import socket
 
 from twisted.internet import reactor, utils, task, defer
 from twisted.internet import protocol
@@ -22,6 +24,7 @@ from datetime import datetime, time, date, timedelta
 
 from ipaddressfinder import IPAddressFinder
 from powermodels import Conf, NodeA, NodeB, Switch, ThinClient, Power, MasterTC
+from powermodels import MgmtVM
 from powermodels import ServerState, PowerState, SwitchState
 from mapper import Mapper
 from dbhandler import DBHandler
@@ -77,11 +80,15 @@ class PowerManager(DatagramProtocol):
     def __init__(self):
         self.shutdownDelay = Conf.DEFAULTSCHEDULEDSHUTDOWNWAITTIME
         self.postponeToggle = False
-        self.waitingForPoEConfirm = False
         self.PoECounter = 1
         self.readyPorts = 16 #default. changed at startup
+        self.waitingForPoEConfirm = False
         self.thinClientsInitialized = False
 
+        #methods triggered by commands
+        self.actions = {
+            "MABUHAY": Mapper.updateSessions
+        }
 
     def _logExitValue(self, exitValue):
         logging.info("exit value of last command:%s" % exitValue)
@@ -280,6 +287,16 @@ class PowerManager(DatagramProtocol):
             d = defer.succeed(None)
         return d
 
+    def shutdownSlapd(self, value=None  ):
+        logging.debug("commanding manangement VM to shutdown slapd")
+        cmd = '/usr/bin/ssh'
+        params = '-o "StrictHostKeyChecking no" root@%s "service slapd stop"' % MgmtVM.IPADDRESS
+        params = shlex.split(params)
+
+        d = utils.getProcessOutput(cmd, params)
+
+        return d
+
     #for powering of Mgmt VM
     def shutdownManagementVM(self, value=None):
         logging.debug('disabling Management VM...')
@@ -388,6 +405,7 @@ class PowerManager(DatagramProtocol):
             #TODO: capture error on ipmi
             d.addCallback(self.sendWakeUpTime)
             d.addCallback(self.lockResources)
+            d.addCallback(self.shutdownSlapd)
             d.addCallback(self.shutdownManagementVM)
             d.addCallback(self.shutdownNFS)
             d.addCallback(self.shutdownLMS)
@@ -624,11 +642,18 @@ class PowerManager(DatagramProtocol):
             logging.debug('replying to switch Checkalive packet')
         elif command == Command.SWITCHREADY:
             self.thinClientsInitialized = False
-            self.readyPorts = ord(payload)
-            logging.debug('switch sents ready ports on startup')
+            # self.readyPorts = ord(payload)+1
+            self.PoECounter = 0
+            logging.debug('switch sents ready ports on startup. Portmapping commence')
+            self.powerUpPoE(0)
         elif command == Command.RDPSESSIONPOWER:
             logging.debug('Request from RDP/Epoptes for power control of a TC')
             self.controlRDPSessionPower(payload)
+        #new way of handling commands from either switch or RDP
+        elif command == Command.BATTSTAT:
+            self.sendBatteryStatusToRDP(payload)
+        else:
+            self.actions[rdpmsg.type]()
 
     #the scenario assumes that the port number matches the PoECounter
     #if not matching, I'm not sure of the next action
@@ -645,25 +670,29 @@ class PowerManager(DatagramProtocol):
             if self.PoECounter >= 3:
                 self.thinClientsInitialized = True
 
-        if self.PoECounter >= Conf.MAXCLIENTS:
+        #Conf.MAXCLIENTS conflict with self.readyPorts
+        if self.PoECounter >= Conf.MAXCLIENTS-1:
             logging.debug("ThinClient map initialization has ended")
             self.thinClientsInitialized = True
 
         if payload[1] == '\x01': #true
             d1 = None   
             if self.thinClientsInitialized:
-                d1 = self.powerUpPoE(port)
-            d2 = task.deferLater(reactor, 5, self.powerUpPoE, port+1)
+                pass
+            else:
+                d2 = task.deferLater(reactor, 5, self.powerUpPoE, port+1)
+                #d1 = self.powerUpPoE(port)
             #errback here needed
             #d3 should be callback for d2
             d3 = task.deferLater(reactor, 1, Mapper.addNewThinClient, port)
-            d3.addCallback(self.sendNotificationToRDP,'TCAdded')
+            d3.addCallback(self.sendNotificationToRDP,str(port))
             if not self.thinClientsInitialized:
                 self.PoECounter = self.PoECounter + 1
             ret = d1
         elif payload[1] == '\x00':
+            logging.debug("received OFF command from switch")
             d = Mapper.removeThinClient(port)
-            d.addCallback(self.sendNotificationToRDP,'TCRemoved')
+            d.addCallback(self.sendNotificationToRDP,str(port))
             if self.thinClientsInitialized == False:
                 self.PoECounter = self.PoECounter + 1
             ret = d
@@ -676,28 +705,53 @@ class PowerManager(DatagramProtocol):
         requestedState = ord(payload[1])
 
         if requestedState == 0:
-            d = task.deferLater(reactor, 10, self.powerDownPoE, tcport)
+            d = task.deferLater(reactor, 10, self.powerDownPoE, port=tcport)
+            #callback should be removed. Notif from switch should take care of this
             d.addCallback(Mapper.removeThinClient, tcport)
         elif requestedState == 1:
             d = self.powerUpPoE(tcport)
+            #callback should be removed. Notif from switch should take care of this
             d.addCallback(task.deferLater, reactor, 10, Mapper.addNewThinClient, tcport)
+        elif requestedState == 2:
+            d = self.shutdownAllExcept(tcport)
 
-    def sendNotificationToRDP(self, info):
-        msg = RDPMessage.updateMessage(info)
-        self.transport.write(msg, ThinClient.DEFAULT_ADDR)
-
-    #TODO: remove 
-    def initializeThinClient(self):
-        logging.debug("initializing an active ThinClient")
-        self.PoECounter = self.PoECounter +1
-        self.waitingForPoEConfirm = True
-
-        Mapper.addNewThinClient()
-        
-        timer.sleep(3) # 3-second grace period before trying to activate the next PoE   
-        d = self.powerUpPoE(self.PoECounter)
+    def shutdownAllExcept(self, port):
+        d = None
+        for n in range(self.readyPorts):
+            dontaddcallback = False
+            if n == 0 and port != 0:
+                d = self.powerDownPoE(port=n)
+            elif port == 0 and n == 0:
+                d = self.powerDownPoE(port=(n+1))
+                dontaddcallback = True
+            elif port == 1 and n == 0:
+                d = self.powerDownPoE(port=n)
+                dontaddcallback = True
+            if n == port:
+                continue
+            elif not dontaddcallback:
+                d.addCallback(self.powerDownPoE, port=n)
 
         return d
+
+    #value is a placeholder for when using this fuction for callback
+    def sendNotificationToRDP(self, value, info):
+        logging.debug("sending update notification to RDP")
+        msg = RDPMessage.updateMessage(info)
+        self.transport.write(msg, ThinClient.DEFAULT_ADDR)
+        self.transport.write(msg, ThinClient.SERVERB_ADDR)
+
+    def sendAckToRDP(self, rdpmessage):
+        raw = "ACK %s %s %s" % (rdpmessage.identifier, rdpmessage.command, rdpmessage.descriptor)
+        self.transport.write(raw, ThinClient.DEFAULT_ADDR)
+
+    def sendBatteryStatusToRDP(self, payload):
+        logging.debug('sending battery status to RDP')
+        #possible out of bounds issue on payload
+        message = RDPMessage.batteryStatusMessage(payload)
+
+        self.transport.write(message, ThinClient.DEFAULT_ADDR)
+        self.transport.write(message, ThinClient.SERVERB_ADDR)
 
     def startProtocol(self):
         logging.info("Power Daemon has now started")
@@ -710,8 +764,11 @@ class PowerManager(DatagramProtocol):
         #power up port 0
         d2 = task.deferLater(reactor, 15, self.powerUpPoE, 0)
 
-        #slightly hack, time is arbitrary
-        #d3 = task.deferLater(reactor, 20, self.sendSyncTime)
+        self.sendCheckReadySignal()
+
+    def sendCheckReadySignal(self):
+        logging.info("sending 'check ready' signal to switch")
+        self.transport.write(Command.SWITCHREADY, (Switch.IPADDRESS,8880))
 
     #to be updated to a initialize() method
     def powerUpThinClients(self):
@@ -768,7 +825,10 @@ class PowerManager(DatagramProtocol):
         d = self.sendIPMICommand(params)  
         return d  
 
-    def powerDownPoE(self, port):
+    def powerDownPoE(self, *args, **kwargs):
+        port = kwargs['port']
+
+
         logging.info("removing power to PoE port %d" % port)
 
         params = []
@@ -865,5 +925,6 @@ if __name__ == "__main__":
     #run reactor
     powerManager = PowerManager()
     virtualIP = powerManager.getVirtualIP()
-    reactor.listenUDP(8880, powerManager)
+    #hack IP interface
+    reactor.listenUDP(8880, powerManager, socket.gethostname())
     reactor.run()
