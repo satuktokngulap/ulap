@@ -53,9 +53,24 @@ class RDPMessageParserTestSuite(unittest.TestCase):
 
 		self.assertEqual(ret, (messageparser.Command.RDPREQUEST,hexmessage))
 
+	def testTranslateCommand_SessionLoginNotif_KeyError(self):
+		message = "HELLO SESSION IS ALIVE"
+
+		ret = messageparser.RDPMessageParser.translateCommand(message)
+
+		self.assertEqual(ret, (None, None))
+
+	def testTranslateCommand_OFFALL(self):
+		message = "REQ 20140910105756 OFF ALL$6"
+		hexmessage = '\x06\x02'
+		messageparser.RDPMessageParser.constructOFFPayload = Mock(return_value=hexmessage)
+
+		ret = messageparser.RDPMessageParser.translateCommand(message)
+
+		self.assertEqual(ret, (messageparser.Command.RDPREQUEST, hexmessage))
 
 	def testconstructOFFPayload(self):
-		port = 7
+		port = "7"
 		payload = ['\x07', '\x00']
 
 		ret = messageparser.RDPMessageParser.constructOFFPayload(port)
@@ -63,12 +78,16 @@ class RDPMessageParserTestSuite(unittest.TestCase):
 		self.assertEqual(ret, payload)
 
 	def testconstructOFFPayload_OFFAll(self):
-		pass
+		port = "ALL$6"
+		payload = ['\x06','\x02']
 
-	testconstructOFFPayload_OFFAll.skip = "TODO"
+		ret = messageparser.RDPMessageParser.constructOFFPayload(port)
+
+		self.assertEqual(ret, payload)
+
 
 	def testconstructONPayload(self):
-		port = 7
+		port = "7"
 		payload = ['\x07', '\x01']
 
 		ret = messageparser.RDPMessageParser.constructONPayload(port)
@@ -79,4 +98,5 @@ class RDPMessageParserTestSuite(unittest.TestCase):
 		pass
 
 	testconstructOFFPayload_ONAll.skip = "TODO"
+
 

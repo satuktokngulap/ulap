@@ -8,13 +8,14 @@ class Command():
     SHUTDOWN_IMMEDIATE = '\x05'
     AC_RESTORED = '\x02'
     KEEPALIVE = '\x04'
-    SWITCHREADY = '\x0C'
+    SWITCHREADY = '\x06'
+    BATTSTAT = '\x08'
 
     
     #thinclient commands & notifications
     SHUTDOWN_CANCEL = '\x09'
-    SHUTDOWN_NORMAL = '\x06'
-    SHUTDOWN_REQUEST = '\x08'
+    SHUTDOWN_NORMAL = '\x0C'
+    SHUTDOWN_REQUEST = '\x0E'
     REDUCE_POWER = '\x03'
     POSTPONE = '1'
     POENOTIF = '\x07'
@@ -49,15 +50,29 @@ class RDPMessageParser():
 		}
 
 		splitmsg = message.split()
+		msgtype = splitmsg[0]
 		command = splitmsg[2]
 		payload = splitmsg[3]
 
-		return (commands[command],options[command](payload))
+		translated = (None,None)
+		try:
+			translated = (commands[command],options[command](payload))
+		except KeyError:
+			translated = (None,None)
+		return translated
 
 	@classmethod
 	def constructOFFPayload(cls, port):
-		return[chr(port),'\x00']
+		payload = None
+
+		try:
+			suffix,port = port.split("$")
+			payload = [chr(int(port)),'\x02']
+		except ValueError:
+			payload = [chr(int(port)),'\x00']
+		
+		return payload
 
 	@classmethod
 	def constructONPayload(cls, port):
-		return[chr(port),'\x01']
+		return[chr(int(port)),'\x01']
