@@ -68,11 +68,12 @@ class ThinClientHandler(DBHandler):
 		tc = cls.getThinClient(thinclient.port)
 		if tc is None:
 			logging.debug("new TC entry, adding to DB")
-			data = (thinclient.ipAddress, thinclient.macAddress, thinclient.port)
+			data = (thinclient.getIPAddress(), thinclient.getMacAddress(), thinclient.getSwitchPoEPort(), thinclient.getSessionID())
 			cls.insert("thinclient", data)
 		else: 
 			logging.debug("existing entry, updating db instead")
-			cls.updateThinClientWithPort(thinclient.ipAddress, thinclient.macAddress, thinclient.port)
+			cls.updateThinClientWithPort(thinclient.getIPAddress(), thinclient.getMacAddress(), thinclient.getSwitchPoEPort()\
+					,thinclient.getSessionID())
 
 		cls.commit()
 
