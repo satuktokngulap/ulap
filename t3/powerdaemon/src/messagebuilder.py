@@ -11,10 +11,12 @@ class RDPMessage():
 			self.command = rawmessage[2]
 			self.descriptor = rawmessage[3]
 
+	#useless list. for refactoring
 	token = [
 		['NOF', 'ACK', 'UPD']\
 		,[]\
 		,['NOR', 'LOW', 'NOW', 'INF', 'BAT']\
+		,['BAT:DRA']
 		]
 
 	@classmethod
@@ -35,3 +37,14 @@ class RDPMessage():
 		msg = "%s %s %s %s" % (cls.token[0][0], identifier, cls.token[2][0], time)
 
 		return msg
+
+	@classmethod
+	def batteryStatusMessage(cls, payload):
+		#possible out of bounds error on payload but cannot resolve here
+		#better exception to be thrown
+		hours = hex(ord(payload[0]))
+		mins = hex(ord(payload[1]))
+		msg = "%s batterymode %s %s:%s:%s" % (cls.token[0][0], cls.token[2][1], cls.token[3][0],hours, mins)
+
+		return msg
+
