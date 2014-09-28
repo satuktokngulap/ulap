@@ -8,7 +8,7 @@ import mapper
 
 import subprocess, shlex
 
-from powermodels import ThinClient
+from powermodels import ThinClient, Session
 
 class MapperTestsuite(unittest.TestCase):
     def setUp(self):
@@ -53,11 +53,12 @@ class MapperTestsuite(unittest.TestCase):
         mapper.Mapper.getDHCPDetails = Mock(return_value=defer.succeed(None))
         mapper.Mapper.addTCToList = Mock(return_value=defer.succeed('begin'))
         tchandler.addThinClient = Mock(return_value=defer.succeed('end'))
+        mapper.Mapper.sendMapToRDP = Mock(return_value=defer.succeed('true'))
         portnum = 9
 
         d = mapper.Mapper.addNewThinClient(portnum)
 
-        d.addCallback(self.assertEqual, 'end')
+        d.addCallback(self.assertEqual, 'true')
 
     #wrapper for dhcpd parser. Output: ipaddress,mac-address tuple
     @patch('mapper.utils')
@@ -87,7 +88,7 @@ class MapperTestsuite(unittest.TestCase):
     @patch('mapper.os')
     @patch('__builtin__.open')
     def testGetTouple_returnDeferred(self, fileopen, os):
-        TCID = '172.16.1.10,40:d8:55:0c:11:0a'
+        TCID = '172.16.1.10,40:d8:55:0c:11:0a\n'
         tupleID = ('172.16.1.10','40:d8:55:0c:11:0a')
         # fileopen().readline = Mock(return_value=TCID)
 
@@ -123,7 +124,6 @@ class MapperTestsuite(unittest.TestCase):
 
         d.addCallback(self.assertEqual, tc())
 
-
     #should not happen since thinclient is deleted as soon as it is disconnected
     @patch('mapper.ThinClient')
     def testAddTCToList_sameThinClient(self, tc):
@@ -135,6 +135,8 @@ class MapperTestsuite(unittest.TestCase):
         tc = Mock()
         tc.port = portnum
         mapper.Mapper.thinClientsList = [tc]
+        mapper.Mapper.sendMapToRDP = Mock(return_value=defer.succeed(None))
+
 
         mapper.Mapper.removeThinClient(portnum)
 
@@ -146,11 +148,24 @@ class MapperTestsuite(unittest.TestCase):
         tc = Mock()
         tc.port = portnum
         mapper.Mapper.thinClientsList = [tc]
+        mapper.Mapper.sendMapToRDP = Mock(return_value=defer.succeed(None))
+
 
         mapper.Mapper.removeThinClient(portnum)
 
         tchandler.removeThinClient.assert_called_with(tc)
 
+    @patch('mapper.ThinClientHandler')
+    def testRemoveThinClient_updateJSON(self, tchandler):
+        portnum = 7
+        tc = Mock()
+        tc.port = portnum
+        mapper.Mapper.thinClientsList = [tc]
+        mapper.Mapper.sendMapToRDP = Mock(return_value=defer.succeed(None))
+
+        d = mapper.Mapper.removeThinClient(portnum)
+
+        d.addCallback(self.assertEqual, None)
 
     @patch('mapper.ThinClient')
     def testAddNullThinClient(self, tc):
@@ -162,21 +177,195 @@ class MapperTestsuite(unittest.TestCase):
         tc.assert_called_with((None,None), portnum)     
 
     #wrapper for calling XFinger
+    @patch('mapper.utils.getProcessOutput')
+    def testGetRDPSessionsViaXFinger(self, process):
+        cmd = '/usr/bin/ssh'
+        paramsRDP1 = '-o "StrictHostKeyChecking no" root@10.18.221.23 "/opt/xfinger.sh"'
+        paramsRDP2 = '-o "StrictHostKeyChecking no" root@10.18.221.24 "/opt/xfinger.sh"'
+        paramsRDP1 = shlex.split(paramsRDP1)
+        paramsRDP2 = shlex.split(paramsRDP2)
+        call1 = call(cmd, paramsRDP1)
+        call2 = call(cmd, paramsRDP2)
+        calls_list = [call1, call2]
 
-    def testGetRDPSessionDetails(self):
-        
+        d = mapper.Mapper.getRDPSessionsViaXFinger()
 
-        mapper.Mapper.getRDPSessionDetails()
+        process.assertEqual_has_calls(calls_list)
 
-    testGetRDPSessionDetails.skip = "incomplete"
-
-    #output is list of tuples, but not implemented for the meantime
+    #receives a list of tuple --> ([True/False], value)
     def testParseXFingerResults(self):
-        testString = 'UID=student20 PID=2128 IP= 172.16.1.130\nUID=student27 PID=3126 IP= 172.16.1.142'
+        testString1 = 'UID=student20 PID=2128 IP= 172.16.1.130\nUID=student27 PID=3126 IP=172.16.1.142'
+        testString2 = 'UID=student21 PID=2138 IP= 172.16.1.131\nUID=student28 PID=3136 IP=172.16.1.143'
+        results = [(True, testString1), (True, testString2)]
+        validList = [{"sessionid": 2128, "userid": 'student20', "ipaddress": '172.16.1.130'}\
+        ,{"sessionid": 3126, "userid": "student27", "ipaddress":'172.16.1.142' }\
+        ,{"sessionid": 2138, "userid": "student21", "ipaddress":'172.16.1.131' }\
+        ,{"sessionid": 3136, "userid": "student28", "ipaddress": '172.16.1.143' }]
+    
+        sessionList = mapper.Mapper.parseXFingerResults(results)
 
-        mapper.Mapper.parseXFingerResults(testring)
+        self.assertEqual(sessionList, validList)
 
-    testParseXFingerResults.skip ='pending for implementation'
+    @patch('mapper.Session')
+    def testUpdateSessionList_correctObjectCall(self, session):
+        sessionList = [{"sessionid": 2128, "userid": 'student20', "ipaddress": '172.16.1.130'}\
+        ,{"sessionid": 3126, "userid": "student27", "ipaddress":'172.16.1.142' }\
+        ,{"sessionid": 2138, "userid": "student21", "ipaddress":'172.16.1.131' }\
+        ,{"sessionid": 3136, "userid": "student28", "ipaddress": '172.16.1.143' }]
+        validSessionList = [{}, {}]
+        callList = [call(2128,'student20'), call(3126, 'student27')\
+            ,call(2138, 'student21')\
+            ,call(3136,'student28')]
+
+        mapper.Mapper.updateSessionList(sessionList)
+
+        session.assert_has_calls(callList)
+
+    #for improvement
+    @patch('mapper.Session')
+    def testUpdateSessionList_appendToList(self, session):
+        sessionList = [{"sessionid": 2128, "userid": 'student20', "ipaddress": '172.16.1.130'}]
+
+        mapper.Mapper.updateSessionList(sessionList)
+
+        assert isinstance(mapper.Mapper.sessionList[0], Mock)
+
+    @patch('mapper.Session')
+    def testUpdateSessionList_emptyListFirst(self, session):
+        #inject empty list to test
+        sessionList = []
+        #pretent sessionList is not empty
+        mapper.Mapper.sessionList = [1,2,3]
+
+        mapper.Mapper.updateSessionList(sessionList)
+
+        assert not mapper.Mapper.sessionList
+
+    def testUpdateThinClient_addSessionID(self):
+        tc = Mock(ipAddress='172.16.1.23', port=9)
+        tc.getIPAddress = Mock(return_value='172.16.1.23')
+        def setSession():
+            tc.sessionID = 2128
+        tc.setSessionID = Mock(side_effect=setSession())
+        mapper.Mapper.thinClientsList.append(tc)
+        session = {"sessionid": 2128, "userid": 'student20', "ipaddress": '172.16.1.130'}
+
+        mapper.Mapper.updateThinClientSessionAttribute(session)
+
+        self.assertEqual(tc.sessionID, session["sessionid"])
+
+    def testUpdateSessions_callGetRDPSessionViaXFinger(self):
+        mapper.Mapper.getRDPSessionsViaXFinger = Mock()
+        mapper.Mapper.updateSessionListAndAttributes = Mock()
+        mapper.Mapper.sendMapToRDP = Mock()
+        mapper.Mapper.removeSessionsOnThinclients = Mock()
+        mapper.Mapper.resetSessionList = Mock()
+
+        d = mapper.Mapper.updateSessions()
+
+        assert mapper.Mapper.getRDPSessionsViaXFinger.called
+
+    def testUpdateSessions_callUpdateSessionListAndAttributes(self):
+        dummyxfingerresults = []
+        mapper.Mapper.getRDPSessionsViaXFinger = Mock(return_value = defer.succeed(dummyxfingerresults))
+        mapper.Mapper.updateSessionListAndAttributes = Mock()
+        mapper.Mapper.sendMapToRDP = Mock()
+        mapper.Mapper.resetSessionList = Mock()
+        mapper.Mapper.removeSessionsOnThinclients = Mock()
+
+        d = mapper.Mapper.updateSessions()
+
+        mapper.Mapper.updateSessionListAndAttributes.assert_called_with(dummyxfingerresults)
+
+    #rushed work. rework
+    def testUpdateSessions_callSendMapToRDP(self):
+        dummyxfingerresults = []
+        mapper.Mapper.getRDPSessionsViaXFinger = Mock(return_value = defer.succeed(dummyxfingerresults))
+        mapper.Mapper.updateSessionListAndAttributes = Mock()
+        mapper.Mapper.getRDPSessionsViaXFinger().addCallback  = Mock()  
+        mapper.Mapper.sendMapToRDP = Mock()
+        mapper.Mapper.resetSessionList = Mock()
+        mapper.Mapper.removeSessionsOnThinclients = Mock()
+
+        d = mapper.Mapper.updateSessions()
+
+        mapper.Mapper.getRDPSessionsViaXFinger().addCallback.assert_called_with(mapper.Mapper.sendMapToRDP)
+
+    def testUpdateSessions_callResetSessions(self):
+        dummyxfingerresults = []
+        mapper.Mapper.getRDPSessionsViaXFinger = Mock(return_value = defer.succeed(dummyxfingerresults))
+        mapper.Mapper.updateSessionListAndAttributes = Mock()
+        mapper.Mapper.getRDPSessionsViaXFinger().addCallback  = Mock()  
+        mapper.Mapper.sendMapToRDP = Mock()
+        mapper.Mapper.resetSessionList = Mock()
+        mapper.Mapper.removeSessionsOnThinclients = Mock()
+
+        d = mapper.Mapper.updateSessions()
+
+        assert mapper.Mapper.resetSessionList.called
+
+    def testUpdateSessions_callRemoveSessionsOnThinclients(self):
+        dummyxfingerresults = []
+        mapper.Mapper.getRDPSessionsViaXFinger = Mock(return_value = defer.succeed(dummyxfingerresults))
+        mapper.Mapper.updateSessionListAndAttributes = Mock()
+        mapper.Mapper.getRDPSessionsViaXFinger().addCallback  = Mock()  
+        mapper.Mapper.sendMapToRDP = Mock()
+        mapper.Mapper.resetSessionList = Mock()
+        mapper.Mapper.removeSessionsOnThinclients = Mock()
+
+        d = mapper.Mapper.updateSessions()
+
+        assert mapper.Mapper.removeSessionsOnThinclients.called
+
+
+    def testUpdateSessionListAndAttributes_callParseXFingerResults(self):
+        sessionstrings ="dummy xfinger results"
+        mapper.Mapper.parseXFingerResults = MagicMock()
+        mapper.Mapper.updateSessionList = Mock()
+        mapper.Mapper.updateThinClientSessionAttribute = Mock()
+
+        mapper.Mapper.updateSessionListAndAttributes(sessionstrings)
+
+        mapper.Mapper.parseXFingerResults.assert_called_with(sessionstrings)
+
+    def testUpdateSessionListAndAttributes_callUpdateSessionList(self):
+        sessionstrings ="dummy xfinger results"
+        sessionList = ['s1', 's2']
+        mapper.Mapper.parseXFingerResults = MagicMock(return_value=sessionList)
+        mapper.Mapper.updateSessionList = Mock()
+        mapper.Mapper.updateThinClientSessionAttribute = Mock()
+
+
+        mapper.Mapper.updateSessionListAndAttributes(sessionstrings)
+
+        mapper.Mapper.updateSessionList.assert_called_with(sessionList)
+
+    def testUpdateSessionListAndAttributes_callUpdateThinClientSessionAttribute(self):
+        sessionstrings ="dummy xfinger results"
+        sessionList = ['s1', 's2']
+        mapper.Mapper.parseXFingerResults = MagicMock(return_value=sessionList)
+        mapper.Mapper.updateSessionList = Mock()
+        mapper.Mapper.updateThinClientSessionAttribute = Mock()
+        callList = [call('s1'), call('s2')]
+
+        mapper.Mapper.updateSessionListAndAttributes(sessionstrings)
+
+        mapper.Mapper.updateThinClientSessionAttribute.assert_has_calls(callList)
+
+    @patch('mapper.Session')
+    def testUpdateSessionFromMessage(self, session):
+        rdpmessage = Mock()
+        rdpmessage.type = 'MABUHAY'
+        rdpmessage.identifier = 'FROM'
+        rdpmessage.command = 'student1'
+        rdpmessage.descriptor = '2859'
+
+        retobject = mapper.Mapper.updateSessionFromMessage(rdpmessage)
+
+        assert isinstance(retobject, Mock)
+        session.assert_called_with(2859, 'student1')
+
+    testUpdateSessionFromMessage.skip ="pending"
 
     def testGetSessionIPGivenSessionID(self):
         ID = 'student20'
@@ -185,6 +374,17 @@ class MapperTestsuite(unittest.TestCase):
         IPaddress = mapper.Mapper.getSessionIPGivenSessionID(testString, ID)
 
         self.assertEqual(IPaddress, '172.16.1.130')
+
+    def testGetUserIDGivenSessionID(self):
+        ID = 1234
+        mockSession = Mock()
+        mockSession.getUserID = Mock(return_value='Gene')
+        mockSession.getSessionID = Mock(return_value=1234)
+        mapper.Mapper.sessionList = [mockSession]
+
+        userid = mapper.Mapper.getUserIDGivenSessionID(ID)
+
+        self.assertEqual(userid, 'Gene')
 
     def testResetLeases(self):
         #note: Mgmt VM will not start right away
@@ -198,22 +398,32 @@ class MapperTestsuite(unittest.TestCase):
     def testSearchBySessionID(self):
         pass
 
-    def testSendJSONMapToRDP(self):
-        mapper.Mapper.createSerializedThinClientData = Mock()
+    def testSendMapToRDP(self):
+        sampleOutput = [{'ip': '172.18.1.101', 'mac':'od:23:2x:df:hh:k9:nb', 'port': 9}]
+        mapper.Mapper.createSerializedThinClientData = Mock(return_value=sampleOutput)
         mapper.Mapper.writeDataToFile = Mock()
-        mapper.Mapper.sendJSONDataToRDP = Mock(return_value=defer.succeed(None))
+        mapper.Mapper.sendJSONDataToRDP = Mock(return_value=defer.succeed("success"))
 
+        d = mapper.Mapper.sendMapToRDP()
 
-    testSendJSONMapToRDP.skip = 'not completed'
+        mapper.Mapper.writeDataToFile.assert_called_with(sampleOutput)
+        d.addCallback(self.assertEqual, "success")
 
     #this test assumes correct constructor for ThinClient object
     #should be using mocks instead
     def testCreateSerializedThinClientData(self):
-        tc1 = ThinClient(('172.16.1.81', 'qw:ir:as:df:12:34:56'), 7)
-        tc2 = ThinClient(('172.16.1.82', 'qw:ir:ad:sf:12:34:56'), 8)
+        tc1 = ThinClient(('172.16.1.81', 'qw:ir:as:df:12:34:56'), 7, 1234)
+        tc2 = ThinClient(('172.16.1.82', 'qw:ir:ad:sf:12:34:56'), 8, 5678)
         mapper.Mapper.thinClientsList = [tc1, tc2]
-        expected = [{'ip': '172.16.1.81' ,'mac': 'qw:ir:as:df:12:34:56','port':7}\
-            ,{'ip':'172.16.1.82','mac':'qw:ir:ad:sf:12:34:56','port':8}]
+        #should have been using this mock technique a long time ago!
+        mapper.Mapper.getUserIDGivenSessionID = Mock()
+        values = { 1234: "gaj", 5678: "assed"}
+        def side_effect(arg):
+            return values[arg]
+        mapper.Mapper.getUserIDGivenSessionID.side_effect = side_effect
+        
+        expected = [{'ip': '172.16.1.81' ,'mac': 'qw:ir:as:df:12:34:56','port':7, 'sessionid': 1234, 'userid': 'gaj'}\
+            ,{'ip':'172.16.1.82','mac':'qw:ir:ad:sf:12:34:56','port':8, 'sessionid': 5678, 'userid':'assed'}]
 
         outputData = mapper.Mapper.createSerializedThinClientData()
 
@@ -242,8 +452,8 @@ class MapperTestsuite(unittest.TestCase):
     @patch('mapper.utils.getProcessOutput')
     def testSendDataToRDPServers_correctgetProcess(self, process, deferredlist):
         cmd = '/usr/bin/scp'
-        params1=['/tmp/map.json', ThinClient.SERVERA_ADDR[0], '/tmp']
-        params2=['/tmp/map.json', ThinClient.SERVERB_ADDR[0], '/tmp']
+        params1=['/tmp/map.json', 'rdpadmin@%s:/tmp' % ThinClient.SERVERA_ADDR[0]]
+        params2=['/tmp/map.json', 'rdpadmin@%s:/tmp' % ThinClient.SERVERB_ADDR[0]]
         call1 = call(cmd, params1)
         call2 = call(cmd, params2)
         calls_list = [call1, call2]
@@ -258,7 +468,30 @@ class MapperTestsuite(unittest.TestCase):
 
         d = mapper.Mapper.sendJSONDataToRDP()
 
-        deferredlist.assert_called_with(process(), process())
+        deferredlist.assert_called_with([process(), process()])
+
+    def testResetSessionList(self):
+        mapper.Mapper.sessionList = [Mock(), Mock()]
+
+        mapper.Mapper.resetSessionList()
+
+        self.assertEqual(len(mapper.Mapper.sessionList), 0)
+
+    def testRemoveSessionsOnThinClients(self):
+        t1 = Mock()
+        def setSessionID(ID):
+            t1.sessionID = ID
+        t1.setSessionID = setSessionID
+        t2 = Mock()
+        def setSessionID2(ID):
+            t2.sessionID = ID
+        t2.setSessionID = setSessionID2
+        mapper.Mapper.thinClientsList = [t1, t2]
+
+        mapper.Mapper.removeSessionsOnThinclients()
+
+        self.assertEqual(t1.sessionID, None)
+        self.assertEqual(t2.sessionID, None)
 
     #call a deferLater to try again
     def testSendDataToRDPServer_SCPFails(self):

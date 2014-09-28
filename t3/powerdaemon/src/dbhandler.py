@@ -23,6 +23,7 @@ class DBHandler():
 		cls.conn = sqlite3.connect(Conf.MAPFILE)
 		cls.cursor = cls.conn.cursor()
 
+	#assumes correct data length. Needs exception handling later
 	@classmethod
 	def insert(cls, table, data):
 		logging.debug("insert operation performed for table %s" % table)
@@ -50,12 +51,13 @@ class ThinClientHandler(DBHandler):
 
 	
 	@classmethod
-	def updateThinClientWithPort(cls, ipaddress, macaddress, port):
+	def updateThinClientWithPort(cls, ipaddress, macaddress, port, sessionid=None):
 		logging.debug("updating DB entry for ThinClient with port %d" % port)
-		data = {"ipaddress": ipaddress , "macaddress": macaddress, "portnum": port }
+		data = {"ipaddress": ipaddress , "macaddress": macaddress, "portnum": port, "sessionid": sessionid }
 		query = "UPDATE thinclient SET \
 			ipaddress=:ipaddress \
 			,macaddress=:macaddress \
+			,sessionid=:sessionid \
 			WHERE portnum=:portnum"
 
 		cls.cursor.execute(query, data)
@@ -66,11 +68,12 @@ class ThinClientHandler(DBHandler):
 		tc = cls.getThinClient(thinclient.port)
 		if tc is None:
 			logging.debug("new TC entry, adding to DB")
-			data = (thinclient.ipAddress, thinclient.macAddress, thinclient.port)
+			data = (thinclient.getIPAddress(), thinclient.getMacAddress(), thinclient.getSwitchPoEPort(), thinclient.getSessionID())
 			cls.insert("thinclient", data)
 		else: 
 			logging.debug("existing entry, updating db instead")
-			cls.updateThinClientWithPort(thinclient.ipAddress, thinclient.macAddress, thinclient.port)
+			cls.updateThinClientWithPort(thinclient.getIPAddress(), thinclient.getMacAddress(), thinclient.getSwitchPoEPort()\
+					,thinclient.getSessionID())
 
 		cls.commit()
 

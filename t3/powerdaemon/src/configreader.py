@@ -47,9 +47,10 @@ def _fillThinclientDefaults(configfile):
 	config = ConfigParser.ConfigParser()
 	config.read(configfile)
 	
-	ThinClient.DEFAULT_ADDR = (config.get('thinclient', 'default_addr'), 8880)
-	ThinClient.SERVERA_ADDR = (config.get('thinclient', 'serverA_addr'), 8880)
-	ThinClient.SERVERB_ADDR = (config.get('thinclient', 'serverB_addr'), 8880)
+	#default port at 8008
+	ThinClient.DEFAULT_ADDR = (config.get('thinclient', 'default_addr'), 8008)
+	ThinClient.SERVERA_ADDR = (config.get('thinclient', 'serverA_addr'), 8008)
+	ThinClient.SERVERB_ADDR = (config.get('thinclient', 'serverB_addr'), 8008)
 
 def fillAllDefaults(configfile):
 	_fillSwitchDefaults(configfile)

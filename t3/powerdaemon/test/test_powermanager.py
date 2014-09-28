@@ -1,5 +1,5 @@
 #Power Manager Unit Test
-from mock import Mock, call, patch
+from mock import Mock, call, patch, MagicMock
 from twisted.internet import defer, reactor
 from twisted.trial import unittest
 
@@ -11,6 +11,8 @@ from PowerManager import ServerNotifs, Command
 
 from Crypto.Cipher import AES
 from datetime import datetime, date, time, timedelta
+
+import shlex
 
 #PowerManager Testsuite
 class PowerManagerTestSuite(unittest.TestCase):
@@ -103,6 +105,7 @@ class PowerManagerTestSuite(unittest.TestCase):
         self.powerManager.shutdownLMS = Mock()
         self.powerManager.shutdownRDPA = Mock()
         self.powerManager.shutdownRDPB = Mock()
+        self.powerManager.shutdownSlapd = Mock()
         self.powerManager._powerOff = Mock()
 
         d = self.powerManager.startShutdown()
@@ -114,14 +117,15 @@ class PowerManagerTestSuite(unittest.TestCase):
         self.assertEqual(self.powerManager.sendIPMIAck().addCallback.call_args_list[0],call(self.powerManager.sendSyncTime))
         self.assertEqual(self.powerManager.sendIPMIAck().addCallback.call_args_list[1],call(self.powerManager.sendWakeUpTime))
         self.assertEqual(self.powerManager.sendIPMIAck().addCallback.call_args_list[2],call(self.powerManager.lockResources))
-        self.assertEqual(self.powerManager.sendIPMIAck().addCallback.call_args_list[3],call(self.powerManager.shutdownManagementVM))
-        self.assertEqual(self.powerManager.sendIPMIAck().addCallback.call_args_list[4],call(self.powerManager.shutdownNFS))
-        self.assertEqual(self.powerManager.sendIPMIAck().addCallback.call_args_list[5],call(self.powerManager.shutdownLMS))
-        self.assertEqual(self.powerManager.sendIPMIAck().addCallback.call_args_list[6],call(self.powerManager.shutdownRDPA))
-        self.assertEqual(self.powerManager.sendIPMIAck().addCallback.call_args_list[7],call(self.powerManager.shutdownRDPB))
-        self.assertEqual(self.powerManager.sendIPMIAck().addCallback.call_args_list[8],call(self.powerManager.checkWhichNode))
-        self.assertEqual(self.powerManager.sendIPMIAck().addCallback.call_args_list[9],call(self.powerManager.shutdownNeighbor))
-        self.assertEqual(self.powerManager.sendIPMIAck().addCallback.call_args_list[10],call(self.powerManager._powerOff))
+        self.assertEqual(self.powerManager.sendIPMIAck().addCallback.call_args_list[3],call(self.powerManager.shutdownSlapd))
+        self.assertEqual(self.powerManager.sendIPMIAck().addCallback.call_args_list[4],call(self.powerManager.shutdownManagementVM))
+        self.assertEqual(self.powerManager.sendIPMIAck().addCallback.call_args_list[5],call(self.powerManager.shutdownNFS))
+        self.assertEqual(self.powerManager.sendIPMIAck().addCallback.call_args_list[6],call(self.powerManager.shutdownLMS))
+        self.assertEqual(self.powerManager.sendIPMIAck().addCallback.call_args_list[7],call(self.powerManager.shutdownRDPA))
+        self.assertEqual(self.powerManager.sendIPMIAck().addCallback.call_args_list[8],call(self.powerManager.shutdownRDPB))
+        self.assertEqual(self.powerManager.sendIPMIAck().addCallback.call_args_list[9],call(self.powerManager.checkWhichNode))
+        self.assertEqual(self.powerManager.sendIPMIAck().addCallback.call_args_list[10],call(self.powerManager.shutdownNeighbor))
+        self.assertEqual(self.powerManager.sendIPMIAck().addCallback.call_args_list[11],call(self.powerManager._powerOff))
 
 
     def testEmergencyShutdown(self):
@@ -205,7 +209,6 @@ class PowerManagerTestSuite(unittest.TestCase):
 
         self.assertEqual(ret, testdate)
 
-
     @patch('PowerManager.utils')
     def test_powerOff(self, utils):
         value = None
@@ -271,6 +274,17 @@ class PowerManagerTestSuite(unittest.TestCase):
 
         utils.getProcessOutput.assert_called_with(cmd, params)
         d.addCallback(self.assertEqual, None)
+
+    #workaround solution for SLAPD shutdown problem for Gluster-based
+    @patch('PowerManager.utils')    
+    def testShutdownSlapd(self, utils):
+        cmd = '/usr/bin/ssh'
+        params = '-o "StrictHostKeyChecking no" root@10.18.221.21 "service slapd stop"'
+        params = shlex.split(params)
+
+        d = self.powerManager.shutdownSlapd()
+
+        utils.getProcessOutput.assert_called_with(cmd, params)
 
     @patch('PowerManager.utils')
     def testExecuteReducedPowerMode(self, utils):
@@ -400,23 +414,6 @@ class PowerManagerTestSuite(unittest.TestCase):
 
     testGetPortNumberFromMac.skip = "unused or deprecated"
 
-    @patch('PowerManager.Mapper')
-    @patch('PowerManager.timer') #mock to avoid actual sleep on test
-    def testInitializeThinClient(self, mocktimer, mapper):
-        #reads UDP port number. stops at 16
-        #send Power to target PoE
-        #waits for UDP acknowledgement from Switch (use status?)
-        self.powerManager.powerUpPoE = Mock()
-        waitingForUDPAck = True
-        mockCounter = 2
-        self.powerManager.PoECounter = 1
-
-        d = self.powerManager.initializeThinClient()
-
-        self.powerManager.powerUpPoE.assert_called_with(mockCounter)
-        self.assertEqual(waitingForUDPAck,self.powerManager.waitingForPoEConfirm)
-        assert mapper.addNewThinClient.called
-
     @patch('PowerManager.task')
     def testStartProtocol(self, task):
         self.powerManager.sendPowerONStatusToSwitch =  Mock()
@@ -425,6 +422,7 @@ class PowerManagerTestSuite(unittest.TestCase):
         self.powerManager.powerUpThinClients = Mock()
         self.powerManager.powerUpThinClients = Mock()
         self.powerManager.sendSyncTime = Mock()
+        self.powerManager.sendCheckReadySignal = Mock()
 
         self.powerManager.startProtocol()
 
@@ -460,8 +458,9 @@ class PowerManagerTestSuite(unittest.TestCase):
 
         self.assertEqual(seconds, timediff)
 
+    @patch('PowerManager.RDPMessage')
     @patch('PowerManager.task')
-    def testNormalShutdown(self, task):
+    def testNormalShutdown(self, task, message):
         #defers shutdown task for 10 minutes
         self.powerManager.postponeToggle = False
         self.powerManager.address = ('172.16.1.255', 8880)
@@ -480,10 +479,12 @@ class PowerManagerTestSuite(unittest.TestCase):
         self.assertEqual(NodeB.serverState, ServerState.COUNTDOWN_IN_PROGRESS)
         self.assertEqual(self.powerManager.shutdownDelay, Conf.DEFAULTSCHEDULEDSHUTDOWNWAITTIME)
         task.deferLater.assert_called_with(reactor, 300, self.powerManager.startShutdown)
-        write.assert_called_with(hex(cmd), (ThinClient.DEFAULT_ADDR[0], ThinClient.DEFAULT_ADDR[1]))
-
+        write.assert_called_with(message.normalShutdownMsg(), (ThinClient.DEFAULT_ADDR[0], ThinClient.DEFAULT_ADDR[1]))
+        #assert not working!
+        #message.normalShutdownMsg.assert_called_with("shutdownSoon",str(self.powerManager.shutdownDelay))
+    @patch('PowerManager.RDPMessage')
     @patch('PowerManager.task')
-    def testNormalShutdown_Postponed(self, task):
+    def testNormalShutdown_Postponed(self, task, message):
         self.powerManager.transport = Mock()
         self.powerManager.transport.write = Mock()
         self.powerManager.schedulePowerUp = Mock()
@@ -647,46 +648,182 @@ class PowerManagerTestSuite(unittest.TestCase):
     def testEvaluatePoENotif_PoEUpFail(self):
         pass
 
-    def testEvaluateRDPRequest_turnOffTC(self):
-        payload=['\x08','\x00']
+    testEvaluatePoENotif_PoEUpFail.skip = "pending"
+
+    @patch('PowerManager.task')
+    @patch('PowerManager.Mapper')
+    def testEvaluatePoENotif_PowerUpCurrentPoE(self, mapper, task):
+        payload = ['\x07','\x01']
+        port = 7
+        self.powerManager.powerUpPoE = Mock()
+        self.powerManager.thinClientsInitialized = True
+       
+        ret = self.powerManager.evaluatePoENotif(payload)
+
+        self.powerManager.powerUpPoE.assert_called_with(port)
+
+    @patch('PowerManager.task')
+    @patch('PowerManager.Mapper')
+    def testEvaluatePoENotif_SendNotifToRDPAfterAddingTC(self, mapper, task):
+        payload = ['\x07','\x01']
+        port = 7
+        self.powerManager.powerUpPoE = Mock()
+        task.deferLater = Mock()
+        mapper.addNewThinClient = Mock()
+        info = "7"
+
+        ret = self.powerManager.evaluatePoENotif(payload)
+
+        task.deferLater().addCallback.assert_called_with(self.powerManager.sendNotificationToRDP,info)
+
+    @patch('PowerManager.task')
+    @patch('PowerManager.Mapper')
+    def testEvaluatePoENotif_SendNotifToRDPAfterDeletingTC(self, mapper, task):
+        payload = ['\x07','\x00']
+        port = 7
+        self.powerManager.powerUpPoE = Mock()
+        task.deferLater = Mock()
+        mapper.addNewThinClient = Mock()
+        info = "7"
+
+        ret = self.powerManager.evaluatePoENotif(payload)
+
+        mapper.removeThinClient().addCallback.assert_called_with(self.powerManager.sendNotificationToRDP,info)
+
+
+    @patch('PowerManager.task')
+    def testEvaluateRDPRequest_turnOffTC(self, task):
+        payload='\x08\x00'
         port = 8
         self.powerManager.powerDownPoE = Mock()
 
         self.powerManager.evaluateRDPRequest(payload)
 
-        self.powerManager.powerDownPoE.assert_called_with(port)
+        task.deferLater.assert_called_with(reactor, 10, self.powerManager.powerDownPoE, port=port)
+        #self.powerManager.powerDownPoE.assert_called_with(port)
 
     @patch('PowerManager.Mapper')
-    def testEvaluateRDPRequest_removeTCOnMap(self, mapper):
-        payload=['\x08','\x00']
+    def testEvaluateRDPRequest_turnOnTC(self, mapper):
+        payload=['\x08','\x01']
         port = 8
-        self.powerManager.powerDownPoE = Mock(return_value=defer.succeed(None))
+        self.powerManager.powerUpPoE = Mock()
 
         self.powerManager.evaluateRDPRequest(payload)
 
-        mapper.removeThinClient.assert_called_with(port)
+        self.powerManager.powerUpPoE.assert_called_with(port)
 
-    def testReceivedRDPRequest(self):
-        cmd = []
-        cmd.append(Command.RDPREQUEST)
-        cmd.append('\x0B') #portnumber
-        cmd.append('\x00') #requested power 
-        payload = ['\x0B','\x00']
+    @patch('PowerManager.task')
+    @patch('PowerManager.Mapper')
+    def testEvaluateRDPRequest_turnOnTC_addToMap(self, mapper, task):
+        payload=['\x08','\x01']
+        port = 8
+        self.powerManager.powerUpPoE = Mock()
+
+        self.powerManager.evaluateRDPRequest(payload)
+
+        self.powerManager.powerUpPoE().addCallback.assert_called_with\
+            (task.deferLater, reactor, 10, mapper.addNewThinClient, port)
+        # task.deferLater.assert_called_with(reactor,5, mapper.addNewThinClient, port)
+
+    @patch('PowerManager.Mapper')
+    @patch('PowerManager.task')
+    def testEvaluateRDPRequest_removeTCOnMap(self, task, mapper):
+        payload=['\x08','\x00']
+        port = 8
+        self.powerManager.powerDownPoE = Mock(return_value=defer.succeed(None))
+        task.deferLater().addCallback = Mock()
+
+        self.powerManager.evaluateRDPRequest(payload)
+
+        task.deferLater().addCallback.assert_called_with(mapper.removeThinClient, port)
+    
+    @patch('PowerManager.Mapper')
+    @patch('PowerManager.task')
+    def testEvaluateRDPRequest_turnOfAllExcept(self, task, mapper):
+        payload=['\x08','\x02']
+        port = 8
+        self.powerManager.shutdownAllExcept = Mock()
+
+        self.powerManager.evaluateRDPRequest(payload)
+
+        self.powerManager.shutdownAllExcept.assert_called_with(port)
+
+    def testShutdownAllExcept(self):
+        port = 8
+        self.powerManager.powerDownPoE = Mock(return_value=defer.succeed(None))
+
+        calls = []
+        calls.append(call(self.powerManager.powerDownPoE,0))
+        calls.append(call(self.powerManager.powerDownPoE,1))
+        calls.append(call(self.powerManager.powerDownPoE,2))
+        calls.append(call(self.powerManager.powerDownPoE,3))
+        calls.append(call(self.powerManager.powerDownPoE,4))
+        calls.append(call(self.powerManager.powerDownPoE,5))
+        calls.append(call(self.powerManager.powerDownPoE,6))
+        calls.append(call(self.powerManager.powerDownPoE,7))
+        calls.append(call(self.powerManager.powerDownPoE,9))
+        calls.append(call(self.powerManager.powerDownPoE,10))
+        calls.append(call(self.powerManager.powerDownPoE,11))
+        calls.append(call(self.powerManager.powerDownPoE,12))
+        calls.append(call(self.powerManager.powerDownPoE,13))
+        calls.append(call(self.powerManager.powerDownPoE,14))
+        calls.append(call(self.powerManager.powerDownPoE,15))
+       
+        self.powerManager.shutdownAllExcept(port)
+
+        self.powerManager.powerDownPoE.assert_has_call(call(0))
+
+    @patch('PowerManager.RDPMessageParser')
+    @patch('PowerManager.RDPMessage')
+    def testReceivedRDPRequest(self, message, parser):
+        cmd = "REQ identifier POW 1"
         self.powerManager.evaluateRDPRequest = Mock()
+        self.powerManager.sendAckToRDP = Mock()
+        payload = '\x0B\x01'
+        parser.translateCommand = Mock(return_value = (Command.RDPREQUEST, payload))
 
         self.powerManager.processCommand(cmd)
 
         self.powerManager.evaluateRDPRequest.assert_called_with(payload)
 
-    def testSendNotificationToRDP(self):
+    @patch('PowerManager.RDPMessageParser')
+    @patch('PowerManager.RDPMessage')
+    def testReceivedRDPRequest_sendAcK(self, message, parser):
+        cmd = "REQ identifier POW 1"
+        self.powerManager.evaluateRDPRequest = Mock()
+        self.powerManager.sendAckToRDP = Mock()
+        payload = '\x0B\x01'
+        parser.translateCommand = Mock(return_value = (Command.RDPREQUEST, payload))
+
+        self.powerManager.processCommand(cmd)
+
+        self.powerManager.sendAckToRDP.assert_called_with(message())
+
+    def testSendAckToRDP(self):
+        rdpmessage = Mock()
+        rdpmessage.type = 'NOF'
+        rdpmessage.identifier = 'hello'
+        rdpmessage.command = 'OFF'
+        rdpmessage.descriptor = '7'
         self.powerManager.transport = Mock()
-        notif = []
 
-        self.powerManager.sendNotificationToRDP
+        self.powerManager.sendAckToRDP(rdpmessage)
 
-        self.powerManager.transport.write.assert_called_with(ThinClient)
+        self.powerManager.transport.write.assert_called_with\
+            ('ACK hello OFF 7', ThinClient.DEFAULT_ADDR)
 
-    testSendNotificationToRDP.skip = "not yet complete"
+    @patch("PowerManager.RDPMessage")
+    def testSendNotificationToRDP(self, rdpmessage):
+        self.powerManager.transport = Mock()
+        rdpmessage.updateMessage = Mock(return_value="test message")
+        info = "jsonupdated"
+
+        d = self.powerManager.sendNotificationToRDP(None,info)
+
+        self.powerManager.transport.write.assert_has_call("test message"\
+                ,ThinClient.DEFAULT_ADDR)
+        self.powerManager.transport.write.assert_has_call("test message"\
+                ,ThinClient.SERVERB_ADDR)
 
     def tesReceivedCheckAliveRequest(self):
         cmd = Command.KEEPALIVE
@@ -696,14 +833,100 @@ class PowerManagerTestSuite(unittest.TestCase):
 
         self.powerManager.transport.write.assert_called_with(cmd, (Switch.IPADDRESS, 8880))
 
+    def testSendCheckReadySignal(self):
+        self.powerManager.transport = Mock()
+
+        self.powerManager.sendCheckReadySignal()
+
+        self.powerManager.transport.write.assert_called_with\
+            (Command.SWITCHREADY, (Switch.IPADDRESS,8880))
+
     def testReceivedSwitchReady(self):
         cmd = Command.SWITCHREADY
         payload = '\x0E'
-        msg = '\x0C\x0E'
+        msg = '\x06\x0E'
+        self.powerManager.powerUpPoE = Mock()
 
         self.powerManager.processCommand(msg)
 
-        self.assertEqual(self.powerManager.readyPorts, 14)
+        self.assertEqual(self.powerManager.readyPorts, 15)
+
+    testReceivedSwitchReady.skip ="not yet implemented on switch side"
+
+    def testReceivedSwitchReady_resetInitialization(self):
+        cmd = Command.SWITCHREADY
+        payload = '\x0E'
+        msg = '\x06\x0E'
+        self.powerManager.powerUpPoE = Mock()
+
+        self.powerManager.processCommand(msg)
+
+        self.assertEqual(self.powerManager.thinClientsInitialized, False)
+
+    def testReceiveedSwitchReady_startPortmapping(self):
+        cmd = Command.SWITCHREADY
+        payload = '\x0E'
+        msg = '\x06\x0E'
+        self.powerManager.powerUpPoE = Mock()
+
+        self.powerManager.processCommand(msg)
+
+        self.powerManager.powerUpPoE.assert_called_with(0)
+
+    def testReceivedTCPowerControlFromRDP(self):
+        self.powerManager.controlRDPSessionPower = Mock()        
+        cmd = Command.RDPSESSIONPOWER
+        payload = '\x0E\x01'
+        msg = cmd + payload
+
+        self.powerManager.processCommand(msg)
+
+        self.powerManager.controlRDPSessionPower.assert_called_with(payload)
+
+    def testControlRDPSessionPower_PowerOn(self):
+        payload = "\x0A\x01"
+
+        self.powerManager.controlRDPSessionPower(payload)
+
+    testControlRDPSessionPower_PowerOn.skip = "implementation pending"
+
+    @patch('PowerManager.RDPMessageParser')
+    @patch('PowerManager.RDPMessage')
+    def testReceivedSessionLoginNotif(self, rdpmessage, parser):
+        message = "MABUHAY FROM student1 4444"
+        rdpmessage().type = "MABUHAY"
+        parser.translateCommand = Mock(return_value=('not','dummy'))
+        self.powerManager.actions = MagicMock()
+        update = Mock()
+        self.powerManager.actions={"MABUHAY":update}
+
+        self.powerManager.processCommand(message)
+
+        assert update.called
+
+    def testReceivedBatterStatus(self):
+        msg = '\x08\x13\x20'
+        payload = '\x13\x20'
+        self.powerManager.sendBatteryStatusToRDP = Mock()
+
+        self.powerManager.processCommand(msg)
+
+        self.powerManager.sendBatteryStatusToRDP.assert_called_with(payload)
+
+    @patch('PowerManager.RDPMessage')
+    def testSendBatteryStatusToRDP(self, RDPMessage):
+        payload = '\x13\x20'
+        self.powerManager.transport = Mock()
+        batterystatusString = 'NOF BAT LOW BAT:DRA:0x13:0x20'
+        updatecall1 = call(batterystatusString, ThinClient.DEFAULT_ADDR)
+        updatecall2 = call(batterystatusString, ThinClient.SERVERB_ADDR)
+        calls = [updatecall1, updatecall2]
+        RDPMessage.batteryStatusMessage = Mock(return_value=batterystatusString)
+
+        self.powerManager.sendBatteryStatusToRDP(payload)
+
+        self.powerManager.transport.write.assert_has_calls\
+            (calls)
 
     def testStartShutdown_ShutdownPostponed(self):
         NodeA.shuttingDownPostponed = True
@@ -756,19 +979,6 @@ class PowerManagerTestSuite(unittest.TestCase):
 
     @patch('PowerManager.utils')
     def testACRestoredFromLowPower(self, utils):
-        # self.powerManager.checkWhichNode = Mock(return_value = 'sb.110134.cloudtop.ph')
-        
-        # params = []
-        # params.append('-H')
-        # params.append(Switch.IPADDRESS)
-        # params.append('-U')
-        # params.append(Switch.USERNAME)
-        # params.append('-P')
-        # params.append(Switch.PASSWORD)
-        # params.append('raw')
-        # params = tuple(params)
-
-        # self.powerManager.ACRestoredFromLowPower()
         pass
 
     def testACRestoredFromHighPower(self):
@@ -788,15 +998,22 @@ class PowerManagerTestSuite(unittest.TestCase):
         self.assertEqual(NodeA.shuttingDownPostponed, False)
         self.assertEqual(NodeB.shuttingDownPostponed, False)
 
-
     @patch('PowerManager.task')
     def testStartProtocol_NoScheduling(self, task):
         Conf.SCHEDULESHUTDOWN = False
         self.powerManager.powerUpThinClients = Mock()
+        self.powerManager.sendCheckReadySignal = Mock()
 
         self.powerManager.startProtocol()
         assert not task.deferLater().called
 
+    @patch('PowerManager.task')
+    def testStartProtocol_SendCheckReady(self, task):
+        self.powerManager.sendCheckReadySignal = Mock()
+
+        self.powerManager.startProtocol()
+
+        assert self.powerManager.sendCheckReadySignal.called
 
     @patch('PowerManager.utils')
     def testShutdownBothBaremetals(self, utils):
@@ -896,11 +1113,11 @@ class PowerManagerTestSuite(unittest.TestCase):
         params.append(hex(port))
         params.append(Switch.OFF)    
 
-        d = self.powerManager.powerDownPoE(port)
+        d = self.powerManager.powerDownPoE(port=port)
 
         self.powerManager.sendIPMICommand.assert_called_with(params)
 
-    def testPowerDownThinClients(self):
+    def EestPowerDownThinClients(self):
         self.powerManager.sendIPMICommand = Mock(return_value=defer.succeed(None))
         params = []
         params.append('-H')
@@ -1024,7 +1241,7 @@ class PowerManagerTestSuite(unittest.TestCase):
 
         self.assertEqual(ret, 8)
 
-    testCheckSwitchState.skip = "not yet implemented"
+    testCheckSwitchState.skip = "pending for implementation"
 
     @patch("PowerManager.utils")
     def testLockResources(self, utils):

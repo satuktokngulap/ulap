@@ -130,13 +130,15 @@ class ThinClientHandlerTestSuite(unittest.TestCase):
 		query = "UPDATE thinclient SET \
 			ipaddress=:ipaddress \
 			,macaddress=:macaddress \
+			,sessionid=:sessionid \
 			WHERE portnum=:portnum"
 		port = 11
 		ipaddress ="10.234.1.2"
 		macaddress="as:12:we:34:rt:23"
-		data = {"ipaddress": ipaddress, "macaddress": macaddress, "portnum": port}
+		sessionid=None
+		data = {"ipaddress": ipaddress, "macaddress": macaddress, "portnum": port, "sessionid": None}
 
-		dbhandler.ThinClientHandler.updateThinClientWithPort(ipaddress, macaddress, port)
+		dbhandler.ThinClientHandler.updateThinClientWithPort(ipaddress, macaddress, port, sessionid)
 
 		dbhandler.DBHandler.cursor.execute.assert_called_with(query, data)
 
@@ -169,8 +171,12 @@ class ThinClientHandlerTestSuite(unittest.TestCase):
 		dbhandler.DBHandler.insert = Mock()
 		dbhandler.ThinClientHandler.getThinClient = Mock(return_value=None)
 		dbhandler.DBHandler.commit = Mock()
-		thinclient = Mock(port=16,ipAddress='10.18.221.218',macAddress='as:12:we:34:rt:23')
-		data = (thinclient.ipAddress, thinclient.macAddress, thinclient.port)
+		thinclient = Mock(port=16,ipAddress='10.18.221.218',macAddress='as:12:we:34:rt:23',sessionid=None)
+		thinclient.getIPAddress = Mock(return_value='10.18.221.218')
+		thinclient.getMacAddress = Mock(return_value='as:12:we:34:rt:23')
+		thinclient.getSwitchPoEPort = Mock(return_value=16)
+		thinclient.getSessionID = Mock(return_value=None)
+		data = ('10.18.221.218','as:12:we:34:rt:23',16,None )
 
 		dbhandler.ThinClientHandler.addThinClient(thinclient)
 
@@ -180,13 +186,17 @@ class ThinClientHandlerTestSuite(unittest.TestCase):
 		oldTC = Mock()
 		dbhandler.ThinClientHandler.getThinClient = Mock(return_value=oldTC)
 		dbhandler.DBHandler.commit = Mock()
-		thinclient = Mock(port=16,ipAddress='10.18.221.218',macAddress='as:12:we:34:rt:23')
+		thinclient = Mock(port=16,ipAddress='10.18.221.218',macAddress='as:12:we:34:rt:23',sessionid=None)
+		thinclient.getIPAddress = Mock(return_value='10.18.221.218')
+		thinclient.getMacAddress = Mock(return_value='as:12:we:34:rt:23')
+		thinclient.getSwitchPoEPort = Mock(return_value=16)
+		thinclient.getSessionID = Mock(return_value=None)
 		dbhandler.ThinClientHandler.updateThinClientWithPort = Mock()
 
 		dbhandler.ThinClientHandler.addThinClient(thinclient)
 
 		dbhandler.ThinClientHandler.updateThinClientWithPort.assert_called_with\
-			('10.18.221.218', 'as:12:we:34:rt:23', 16)
+			('10.18.221.218', 'as:12:we:34:rt:23', 16, None)
 
 
 	def testAddThinClient_WrongTCObject(self):
