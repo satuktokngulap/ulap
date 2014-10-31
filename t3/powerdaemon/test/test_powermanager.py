@@ -572,7 +572,7 @@ class PowerManagerTestSuite(unittest.TestCase):
 
         ret = self.powerManager.evaluatePoENotif(payload)
 
-        task.deferLater.assert_called_with(reactor, 1, mapper.addNewThinClient,portnum)
+        task.deferLater.assert_has_call(reactor, 1, mapper.addNewThinClient,portnum)
         #mapper.addNewThinClient.assert_called_with(portnum)
         self.assertEqual(3, self.powerManager.PoECounter)
 
@@ -633,16 +633,20 @@ class PowerManagerTestSuite(unittest.TestCase):
 
         task.deferLater.assert_has_call(latercall)
         #self.powerManager.powerUpPoE.assert_called_with(port)
-
+  
+    @patch('PowerManager.task')
     @patch('PowerManager.Mapper')
-    def testEvaluatePoENotif_TCRemovedDuringInitialization(self, mapper):
+    def testEvaluatePoENotif_CheckIfTCGotPower(self, mapper, task):
         self.powerManager.thinClientsInitialized = False
-        payload = ['\x07', '\x00']
+        payload = ['\x07', '\x01']
         self.powerManager.PoECounter = 2
+        self.powerManager.checkIfTCResponsive = Mock()
+        port = 7
 
         self.powerManager.evaluatePoENotif(payload)
 
-        self.assertEqual(self.powerManager.PoECounter, 3)
+        task.deferLater.assert_has_call(reactor, 25, self.powerManager.checkIfTCResponsive, port)
+
 
     #TODO
     def testEvaluatePoENotif_PoEUpFail(self):
@@ -661,6 +665,8 @@ class PowerManagerTestSuite(unittest.TestCase):
         ret = self.powerManager.evaluatePoENotif(payload)
 
         self.powerManager.powerUpPoE.assert_called_with(port)
+
+    testEvaluatePoENotif_PowerUpCurrentPoE.skip = "wrong implementation"
 
     @patch('PowerManager.task')
     @patch('PowerManager.Mapper')
@@ -690,6 +696,17 @@ class PowerManagerTestSuite(unittest.TestCase):
 
         mapper.removeThinClient().addCallback.assert_called_with(self.powerManager.sendNotificationToRDP,info)
 
+    @patch('PowerManager.task')
+    @patch('PowerManager.Mapper')  
+    def testEvaluateRDPRequest_ReAttemptAfterTimeOut(self, mapper, task):
+        payload = ['\x07','\x01']
+        port = 7
+        task.deferLater = Mock()
+        self.powerManager.checkIfTCResponsive = Mock()
+
+        ret = self.powerManager.evaluatePoENotif(payload)
+
+        task.deferLater.assert_has_call(self.powerManager.checkIfTCResponsive, port)
 
     @patch('PowerManager.task')
     def testEvaluateRDPRequest_turnOffTC(self, task):
@@ -772,6 +789,18 @@ class PowerManagerTestSuite(unittest.TestCase):
         self.powerManager.shutdownAllExcept(port)
 
         self.powerManager.powerDownPoE.assert_has_call(call(0))
+
+    @patch('PowerManager.task')
+    def testcheckIfTCResponsive_noResponse(self, task):
+        port = 7
+        self.powerManager.PoECounter = 8
+        self.powerManager.powerUpPoE = Mock()
+
+        self.powerManager.checkIfTCResponsive(port)
+
+        self.powerManager.powerUpPoE.assert_called_with(9)
+        self.assertEqual(self.powerManager.PoECounter, 9)
+        task.deferLater.assert_called_with(reactor, 25, self.powerManager.checkIfTCResponsive, port+1)
 
     @patch('PowerManager.RDPMessageParser')
     @patch('PowerManager.RDPMessage')
@@ -927,6 +956,16 @@ class PowerManagerTestSuite(unittest.TestCase):
 
         self.powerManager.transport.write.assert_has_calls\
             (calls)
+
+    @patch('PowerManager.Mapper')
+    def testUpdateSessions(self, mapper):
+        mapper.updateSessions = Mock()
+        self.powerManager.sendNotificationToRDP = Mock()
+
+        self.powerManager.updateSessions()
+
+        assert mapper.updateSessions.called
+        self.powerManager.sendNotificationToRDP.assert_called_with(None,'session login event')
 
     def testStartShutdown_ShutdownPostponed(self):
         NodeA.shuttingDownPostponed = True

@@ -7,7 +7,6 @@
 #Author: Gene Paul Quevedo
 
 
-
 import logging, os, signal, re
 import time as timer
 import ConfigParser
@@ -87,7 +86,7 @@ class PowerManager(DatagramProtocol):
 
         #methods triggered by commands
         self.actions = {
-            "MABUHAY": Mapper.updateSessions
+            "MABUHAY": self.updateSessions
         }
 
     def _logExitValue(self, exitValue):
@@ -671,7 +670,7 @@ class PowerManager(DatagramProtocol):
                 self.thinClientsInitialized = True
 
         #Conf.MAXCLIENTS conflict with self.readyPorts
-        if self.PoECounter >= Conf.MAXCLIENTS-1:
+        if self.PoECounter >= Conf.MAXCLIENTS:
             logging.debug("ThinClient map initialization has ended")
             self.thinClientsInitialized = True
 
@@ -684,8 +683,10 @@ class PowerManager(DatagramProtocol):
                 #d1 = self.powerUpPoE(port)
             #errback here needed
             #d3 should be callback for d2
+                d4 = task.deferLater(reactor, 60, self.checkIfTCResponsive, port)
             d3 = task.deferLater(reactor, 1, Mapper.addNewThinClient, port)
             d3.addCallback(self.sendNotificationToRDP,str(port))
+                
             if not self.thinClientsInitialized:
                 self.PoECounter = self.PoECounter + 1
             ret = d1
@@ -694,7 +695,9 @@ class PowerManager(DatagramProtocol):
             d = Mapper.removeThinClient(port)
             d.addCallback(self.sendNotificationToRDP,str(port))
             if self.thinClientsInitialized == False:
-                self.PoECounter = self.PoECounter + 1
+                #since switch is not sending OFF signal during TC init phase. nothing should be done here anymore
+                # self.PoECounter = self.PoECounter + 1
+                pass
             ret = d
         else:
             logging.debug("PoE on port %d failed. LAN cable probably disconnected" % port)
@@ -714,6 +717,14 @@ class PowerManager(DatagramProtocol):
             d.addCallback(task.deferLater, reactor, 10, Mapper.addNewThinClient, tcport)
         elif requestedState == 2:
             d = self.shutdownAllExcept(tcport)
+
+    def checkIfTCResponsive(self, port):
+        if self.PoECounter == (port + 1) and self.PoECounter <= Conf.MAXCLIENTS:
+            #probable timeout
+            logging.debug("skipping port %d, calling evaluatePoENotif" % self.PoECounter)
+            self.powerUpPoE(port+2)
+            task.deferLater(reactor, 60, self.checkIfTCResponsive, port+1)
+            self.PoECounter += 1
 
     def shutdownAllExcept(self, port):
         d = None
@@ -740,6 +751,10 @@ class PowerManager(DatagramProtocol):
         msg = RDPMessage.updateMessage(info)
         self.transport.write(msg, ThinClient.DEFAULT_ADDR)
         self.transport.write(msg, ThinClient.SERVERB_ADDR)
+
+    def updateSessions(self):
+        Mapper.updateSessions()
+        self.sendNotificationToRDP(None, "sessionLoginEvent")
 
     def sendAckToRDP(self, rdpmessage):
         raw = "ACK %s %s %s" % (rdpmessage.identifier, rdpmessage.command, rdpmessage.descriptor)
