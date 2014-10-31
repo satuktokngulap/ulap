@@ -777,7 +777,7 @@ class PowerManager(DatagramProtocol):
         else:
             logging.debug("Daily shutdown schedule disabled")
         #power up port 0
-        d2 = task.deferLater(reactor, 15, self.powerUpPoE, 0)
+        #d2 = task.deferLater(reactor, 15, self.powerUpPoE, 0)
 
         self.sendCheckReadySignal()
 
