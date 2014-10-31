@@ -99,6 +99,7 @@ class MapperTestsuite(unittest.TestCase):
     @patch('mapper.ThinClient')
     def testAddTCToList_correctObject(self, tc):
         touple = ('10.18.221.25', '40:d8:55:0c:11:0a')
+        mapper.Mapper.removeThinClient = Mock()
         port = 8
 
         d = mapper.Mapper.addTCToList(touple, port)
@@ -108,6 +109,7 @@ class MapperTestsuite(unittest.TestCase):
     @patch('mapper.ThinClient')
     def testAddTCToList_correctParams(self, tc):
         touple = ('10.18.221.25', '40:d8:55:0c:11:0a')
+        mapper.Mapper.removeThinClient = Mock()
         port = 8
         
         d = mapper.Mapper.addTCToList(touple, port)
@@ -118,11 +120,22 @@ class MapperTestsuite(unittest.TestCase):
     @patch('mapper.defer')
     def testAddTCToList_returnTCObject(self, defer, tc):
         touple = ('10.18.221.25', '40:d8:55:0c:11:0a')
+        mapper.Mapper.removeThinClient = Mock()
         port = 8
 
         d = mapper.Mapper.addTCToList(touple, port)
 
         d.addCallback(self.assertEqual, tc())
+
+    def testAddTCToList_removeOldTC(self):
+        touple = ('10.18.221.25', '40:d8:55:0c:11:0a')
+        mapper.Mapper.removeThinClient = Mock()
+        port = 8
+
+        d = mapper.Mapper.addTCToList(touple, port)
+
+        assert mapper.Mapper.removeThinClient.called
+
 
     #should not happen since thinclient is deleted as soon as it is disconnected
     @patch('mapper.ThinClient')

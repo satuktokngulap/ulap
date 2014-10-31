@@ -161,7 +161,6 @@ class Mapper():
 
         return userid
 
-
     @classmethod
     def getRDPSessionsViaXFinger(cls):
         cmd = '/usr/bin/ssh'
